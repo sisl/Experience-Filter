@@ -8,7 +8,8 @@ sys.path.append('./PythonAPI/carla/')
 
 # Create Carla client and world
 client = carla.Client('localhost', 2000)
-world = client.load_world("Town07_Opt")
+client.set_timeout(2.0)
+world = client.load_world("Town01_Opt")
 world.set_weather(carla.WeatherParameters.WetCloudySunset)
 
 # To import a basic agent
@@ -43,6 +44,14 @@ agent.set_destination(destination.location)
 # spectator = world.get_spectator()
 # spec_loc = carla.Location(x=-16.508865356445312,y=-32.86841583251953,z=42.87731170654297)
 # spectator.set_location(spec_loc)
+
+# Change traffic lights to green always, then destroy.
+actor_list = world.get_actors()
+traflights = actor_list.filter("traffic.traffic_light*")
+for item in traflights:
+    item.set_state(carla.TrafficLightState.Green)
+    item.set_green_time(9999.0)
+
 
 time.sleep(5)
 stopped_flag = False

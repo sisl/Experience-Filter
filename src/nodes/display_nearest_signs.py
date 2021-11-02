@@ -24,8 +24,8 @@ except IndexError:
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-a', '--actor_id', type=int, help="ID of the actor of interest.")
-    parser.add_argument('-t', '--traffic_signs', type=str, default="stop", choices=["speed_limit" "stop", "traffic_light", "unknown", "yield"], help="Traffic signs to consider.")
+    parser.add_argument('-a', '--actor_id', type=int, default=-1, help="ID of the actor of interest. Enter `-1` for spectator.")
+    parser.add_argument('-t', '--traffic_signs', type=str, default="static.prop.trafficcone01", help="Traffic signs to consider.")
     parser.add_argument('-n', '--number_of_signs', type=int, default=3, help="Number of traffice signs to consider.")
 
     parser.add_argument('-S', '--sleeptime', type=float, default=0.25, help="Sleep-time between each publication.")
@@ -40,18 +40,21 @@ def main(args):
 	client = carla.Client(args.host, args.port)
 	client.set_timeout(2.0)
 	world = client.get_world()
-	aoi = world.get_actor(args.actor_id)
+	if not args.actor_id == -1:
+		aoi = world.get_actor(args.actor_id)
+	else:
+		aoi = world.get_spectator()
 
 	while True:
 		actor_list = world.get_actors()
 		aoi_location = aoi.get_location()
-		tsoi = actor_list.filter("traffic.{}*".format(args.traffic_signs))
+		tsoi = actor_list.filter("*{}*".format(args.traffic_signs))
 
-		distances = [(carla.Location.distance(aoi.get_location(), item.get_location()), item.get_location()) for item in tsoi]
+		distances = [(carla.Location.distance(aoi.get_location(), item.get_location()), item.get_transform()) for item in tsoi]
 		# import pdb; pdb.set_trace()
 
 		# print("-----------------------------------")
-		for item in heapq.nsmallest(args.number_of_signs, distances): print(f"Actor: {str(aoi_location)}   Sign: {str(item[1])}   Distance: {item[0]}")
+		for item in heapq.nsmallest(args.number_of_signs, distances): print(f"AV: {str(aoi.get_transform())}   Target: {str(item[1])}   Distance: {item[0]}")
 		print("-----------------------------------")
 
 		time.sleep(args.sleeptime)

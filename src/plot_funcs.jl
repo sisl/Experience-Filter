@@ -1,0 +1,37 @@
+using POMDPs
+using Plots
+
+function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiveness=:normal)
+    
+    get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
+    get_state_blk(idx::Int) = [:yes, :no][idx]
+    
+    X = rival_blocking_range = collect(1 : 0.1 : 2)
+    Y = rival_pos_range = collect(1 : 0.1 : 4)
+    Z = []
+    
+    """ Loop through `rival_pos` and `rival_blocking` """
+    for j in rival_blocking_range
+        for i in rival_pos_range
+            # _pct is the probability of _cl
+            i_pct, i_cl, i_fl = i %1, ceil(Int, i), floor(Int, i)
+            j_pct, j_cl, j_fl = j %1, ceil(Int, j), floor(Int, j)
+            s_pct = [i_pct*j_pct, (1-i_pct)*j_pct, i_pct*(1-j_pct), (1-i_pct)*(1-j_pct)]
+
+            s1 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness)
+            s2 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness)
+            s3 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness)
+            s4 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness)
+
+            s_list = [State_Space[i] for i in [s1, s2, s3, s4]]
+            state_list = ordered_states(pomdp)
+            state_probs = zeros(length(state_list))
+            state_probs[s_list] = s_pct
+
+            b = DiscreteBelief(pomdp, state_list, state_probs)
+            a = POMDPs.action(pol, b)
+            push!(Z, a)
+        end
+    end
+    return X, Y, Z
+end
