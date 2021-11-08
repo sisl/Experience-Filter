@@ -4,7 +4,7 @@ using POMDPModelTools
 using POMDPSimulators
 using POMDPPolicies
 using BeliefUpdaters: DiscreteBelief, DiscreteUpdater
-using SARSOP
+using SARSOP, QMDP
 using Parameters
 
 include("helper_funcs.jl")
@@ -65,7 +65,7 @@ function create_State_Space(S_ids::Tuple{Vararg{Symbol}}, S_vals::Vector)
     return State_Space::Dict{NamedTuple{S_ids,NTuple{length(S_ids),Symbol}}, Int}
 end
 
-get_state_desc(DP::DecisionProblem, s::Int) = DP.State_Space[s]
+get_state_desc(State_Space::Dict, s_idx::Int) = ordered_dict_keys(State_Space)[s_idx]
 
 
 """
@@ -127,7 +127,7 @@ function define_Trans_Func(State_Space::Dict, Action_Space::Dict, params::NamedT
             for (key_sp, val_sp) in State_Space
 
                 # Transitions of `ego_pos`
-                if key_a == :stop
+                if key_a == :stop || key_a == :edge
                     Trans_Func[val_sp, val_a, val_s] *= key_sp.ego_pos == key_s.ego_pos ? 1.0 : 0.0
 
                 else    # action is not stop
@@ -183,10 +183,9 @@ function define_Trans_Func(State_Space::Dict, Action_Space::Dict, params::NamedT
         end
     end
 
-    return Trans_Func::AbstractArray{Float64, 3}
+    return normalize_Func(Trans_Func)::AbstractArray{Float64, 3}
 end
 
-validate_Trans_Func(Trans_Func::AbstractArray{Float64, 3}, eps=1e-5) = all(1.0 + eps .> sum(Trans_Func, dims=1) .> 1.0 - eps)
 
 get_trans_prob(DP::DecisionProblem, sp::NamedTuple, a::Symbol, s::NamedTuple) = DP.Trans_Func[DP.State_Space[sp],DP.Action_Space[a],DP.State_Space[s]]
 get_trans_prob(Trans_Func::AbstractArray{Float64, 3}, S_space::Dict, A_space::Dict, sp::NamedTuple, a::Symbol, s::NamedTuple) = Trans_Func[S_space[sp],A_space[a],S_space[s]]
@@ -225,6 +224,9 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
     # Guess the aggressiveness of rival (and the probabilities), given an observation of the rival's speed.
     aggr_nearest(o::Float64, params::NamedTuple) = nearest(o=o, levels=[:cautious, :normal, :aggressive], prob=params.aggr_guess)
 
+    # Guess the blocking of rival (and the probabilities), given an observation about it.
+    blk_nearest(o::Float64, params::NamedTuple) = nearest(o=o, levels=[:yes, :no], prob=params.blocking_guess)
+
     
     for (key_o, val_o) in Obs_Space
         for (key_a, val_a) in Action_Space
@@ -254,12 +256,25 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
                     end
                 end
 
+                # # Observations of `rival_blocking`
+                # for (i,j) in zip(st_egos, st_rivals)
+                #     if (i == j == :inside) || (i == j == :after)
+                #         Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? params.blocking_guess : 1.0 - params.blocking_guess 
+                #     else
+                #         Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? 0.0 : 1.0
+                #     end
+                # end
+
+
                 # Observations of `rival_blocking`
-                for (i,j) in zip(st_egos, st_rivals)
-                    if (i == j == :inside) || (i == j == :after)
-                        Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? params.blocking_prob : 1.0 - params.blocking_prob 
+                st_blk, probs, rem_probs = blk_nearest(key_o.rival_blocking, params)
+                for (i,j) in zip(st_blk, probs)
+                    if key_s.rival_blocking == i
+                        Obs_Func[val_o, val_a, val_s] *= j
+                        # @show j
                     else
-                        Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? 0.0 : 1.0
+                        Obs_Func[val_o, val_a, val_s] *= rem_probs
+                        # @show rem_probs
                     end
                 end
 
@@ -280,11 +295,11 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
     end
 
     # return Obs_Func::AbstractArray{Float64, 3}
-    return normalize_Obs_Func(Obs_Func)::AbstractArray{Float64, 3}
+    return normalize_Func(Obs_Func)::AbstractArray{Float64, 3}
 end
 
-normalize_Obs_Func(Obs_Func::AbstractArray{Float64, 3}) = Obs_Func ./ sum(Obs_Func, dims=1)
-validate_Obs_Func(Obs_Func::AbstractArray{Float64, 3}, eps=1e-5) = all(1.0 + eps .> sum(Obs_Func, dims=1) .> 1.0 - eps)
+normalize_Func(Obs_Func::AbstractArray{Float64, 3}) = Obs_Func ./ sum(Obs_Func, dims=1)
+validate_Func(Obs_Func::AbstractArray{Float64, 3}, eps=1e-5) = all(1.0 + eps .> sum(Obs_Func, dims=1) .> 1.0 - eps)
 
 get_obs_prob(DP::DecisionProblem, o::NamedTuple, a::Symbol, s::NamedTuple) = DP.Obs_Func[DP.Obs_Space[o],DP.Action_Space[a],DP.State_Space[s]]
 get_obs_prob(Obs_Func::AbstractArray{Float64, 3}, O_space::Dict, A_space::Dict, S_space::Dict, o::NamedTuple, a::Symbol, s::NamedTuple) = Obs_Func[O_space[o],A_space[a],S_space[s]]
@@ -303,24 +318,33 @@ Define the Reward Function for the Stop-Uncontrolled DP.
 """
 function define_Reward_Func(State_Space::Dict, Action_Space::Dict, params::NamedTuple)
 
-    Reward_Func = -1 * ones(length(State_Space), length(Action_Space))
+    Reward_Func = zeros(length(State_Space), length(Action_Space))
 
     for (key_s, val_s) in State_Space    
         for (key_a, val_a) in Action_Space
+
+            # Penalty of individual actions
+            if key_a == :stop
+                Reward_Func[val_s, val_a] = -100
+            elseif key_a == :edge
+                Reward_Func[val_s, val_a] = -1
+            else   # :go
+                Reward_Func[val_s, val_a] = 0
+            end
 
             # Final state (desired)
             if key_s.ego_pos == :after
                 Reward_Func[val_s, val_a] = params.final_reward
             end
 
-            # Crash state (undesired)
-            if key_s.ego_pos == key_s.rival_pos == :inside && key_s.rival_blocking == :yes
-                Reward_Func[val_s, val_a] = params.crash_reward
-            end
-
             # Taken over state (slightly undesired)
             if key_s.rival_blocking == :yes
                 Reward_Func[val_s, val_a] = params.taken_over_reward
+            end
+
+            # Crash state (undesired)
+            if key_s.ego_pos == key_s.rival_pos == :inside && key_s.rival_blocking == :yes
+                Reward_Func[val_s, val_a] = params.crash_reward
             end
 
         end
@@ -331,7 +355,7 @@ end
 
 
 """ Return possible transitions from a given state and action. """
-function get_transitions(s::NamedTuple, a::Symbol, State_Space, Action_Space, Trans_Func; sort_by=5, sort_rev=true)
+function get_transitions(s::NamedTuple, a::Symbol, State_Space, Action_Space, Trans_Func; sort_by=-1, sort_rev=true)
 
     s_idx = State_Space[s]
     a_idx = Action_Space[a]
@@ -341,6 +365,7 @@ function get_transitions(s::NamedTuple, a::Symbol, State_Space, Action_Space, Tr
     sp_probs = Trans_Func[idxs, a_idx, s_idx]
     
     data = permutedims(vcat(hcat(collect.(sp)...), sp_probs'))
+    if sort_by == -1 sort_by = size(data, 2) end
     data = sortslices(data, dims=1, by=x->x[sort_by], rev=sort_rev)
 
     return pretty_table(data; header = vcat(collect(string.(fieldnames(s))), "Prob"), hlines=0:length(idxs))
@@ -348,7 +373,7 @@ end
 
 
 """ Return possible observations from a given state and action. """
-function get_observations(s::NamedTuple, a::Symbol, State_Space, Action_Space, Obs_Space, Obs_Func; sort_by=4, sort_rev=true)
+function get_observations(s::NamedTuple, a::Symbol, State_Space, Action_Space, Obs_Space, Obs_Func; sort_by=-1, sort_rev=true)
 
     s_idx = State_Space[s]
     a_idx = Action_Space[a]
@@ -358,6 +383,7 @@ function get_observations(s::NamedTuple, a::Symbol, State_Space, Action_Space, O
     o_probs = Obs_Func[idxs, a_idx, s_idx]
     
     data = permutedims(vcat(hcat(collect.(o)...), o_probs'))
+    if sort_by == -1 sort_by = size(data, 2) end
     data = sortslices(data, dims=1, by=x->x[sort_by], rev=sort_rev)
 
     return pretty_table(data; header = vcat(collect(string.(fieldnames(o[1]))), "Prob"), hlines=0:length(idxs))
@@ -385,22 +411,22 @@ rival_aggsv_vals = (:cautious, :normal, :aggressive)
 S_vals = [vehicle_pos_vals, vehicle_pos_vals, binary_vals, rival_aggsv_vals]
 State_Space = create_State_Space(S_ids, S_vals)
 
-O_ids = (:ego_pos, :rival_pos, :rival_vel)
+O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_vel)
 pos_max = length(vehicle_pos_vals)
 pos_increment = 1
 vel_min = 1
 vel_max = 3
 vel_increment = 1
-O_ran = [range(1, pos_max, step=pos_increment), range(1, pos_max, step=pos_increment), range(vel_min, vel_max, step=vel_increment)]
+O_ran = [range(1, pos_max, step=pos_increment), range(1, pos_max, step=pos_increment), range(1, 2, step=pos_increment), range(vel_min, vel_max, step=vel_increment)]
 Obs_Space = create_Obs_Space(O_ids, O_ran)
 
-TF_params = (pos_stays=0.66, blocking_changes=0.20, aggresiveness_changes=0.20, aggresiveness_stays=0.60)
+TF_params = (pos_stays=0.80, blocking_changes=0.20, aggresiveness_changes=0.00, aggresiveness_stays=0.70)
 Trans_Func = define_Trans_Func(State_Space, Action_Space, TF_params)
 
-OF_params = (pos_guess = 0.70, blocking_prob = 0.70, aggr_guess = 0.60)
+OF_params = (pos_guess = 0.99, blocking_guess = 0.99, aggr_guess = 0.99)    # TODO: This is fully observable. Change this.
 Obs_Func = define_Obs_Func(Obs_Space, Action_Space, State_Space, OF_params)
 
-RF_params = (final_reward = 10000, crash_reward = -10000, taken_over_reward = -100)
+RF_params = (final_reward = 1000, crash_reward = -10000, taken_over_reward = -1000)
 Reward_Func = define_Reward_Func(State_Space, Action_Space, RF_params)
 
 
@@ -409,24 +435,24 @@ discount = 0.95
 pomdp = TabularPOMDP(Trans_Func, Reward_Func, Obs_Func, discount);
 
 # Stepthrough
-solver = SARSOPSolver()
+# solver = SARSOPSolver()
+solver = QMDPSolver(max_iterations=1000000, belres=1.0e-4, verbose=true)
 policy = solve(solver, pomdp)
 
 for (s, a, r) in stepthrough(pomdp,policy, "s,a,r", max_steps=10)
-    @show get_state_desc(State_Space, s)
+    printt(get_state_desc(State_Space, s))
     @show a
     @show r
     println()
 end
 
-function uniform_belief(pomdp)
-    state_list = ordered_states(pomdp)
-    ns = length(state_list)
-    return DiscreteBelief(pomdp, state_list, ones(ns) / ns)
-end
+# function uniform_belief(pomdp)
+#     state_list = ordered_states(pomdp)
+#     ns = length(state_list)
+#     return DiscreteBelief(pomdp, state_list, ones(ns) / ns)
+# end
 
-# Policy can be used to map belief to actions
-b = uniform_belief(pomdp) # from POMDPModelTools
-a = action(policy, b)
-bu = DiscreteUpdater(pomdp)
-
+# # Policy can be used to map belief to actions
+# b = uniform_belief(pomdp) # from POMDPModelTools
+# a = action(policy, b)
+# bu = DiscreteUpdater(pomdp)
