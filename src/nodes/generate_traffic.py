@@ -124,7 +124,7 @@ def main(args):
 
     try:
         world = client.get_world()
-        world = client.load_world('Town02')
+        #world = client.load_world('Town02')
 
         number_of_vehicles = args.number_of_vehicles
         number_of_walkers = args.number_of_walkers
