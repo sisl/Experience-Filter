@@ -168,21 +168,21 @@ def main(args):
         # scenario setup
         if (args.scenario == 0):
             number_of_vehicles = int(0.3 * number_of_spawn_points)
-            number_of_normal_vehicles = int(0.5*number_of_vehicles)
-            number_of_cauitous_vehicles = number_of_vehicles - number_of_normal_vehicles            
+            number_of_normal_vehicles = 0
+            number_of_cauitous_vehicles = number_of_vehicles  
             number_of_aggressive_vehicles = 0
             number_of_walkers = int(0.05 * number_of_spawn_points)
         elif(args.scenario == 1):
-            number_of_vehicles = int(0.8 * number_of_spawn_points)
-            number_of_normal_vehicles = int(0.8*number_of_vehicles)
-            number_of_cauitous_vehicles = number_of_vehicles - number_of_normal_vehicles
+            number_of_vehicles = int(0.6 * number_of_spawn_points)
+            number_of_normal_vehicles = number_of_vehicles
+            number_of_cauitous_vehicles = 0
             number_of_aggressive_vehicles = 0
             number_of_walkers = int(0.1 * number_of_spawn_points)
         elif(args.scenario == 2):
             number_of_vehicles = int(0.5 * number_of_spawn_points)
-            number_of_normal_vehicles = int(0.5*number_of_vehicles)
+            number_of_normal_vehicles = 0
             number_of_cauitous_vehicles = 0
-            number_of_aggressive_vehicles = number_of_vehicles - number_of_normal_vehicles         
+            number_of_aggressive_vehicles = number_of_vehicles      
             number_of_walkers = int(0.05 * number_of_spawn_points)
 
         if number_of_vehicles < number_of_spawn_points:
@@ -215,40 +215,27 @@ def main(args):
                 speed_perc = 10*random.rand()+30 #60-70% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
-            elif (args.scenario == 0):
-                # normal cars
-                speed_perc = 10*random.rand()+10 #80-90% of the speed limit
-                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
-
-            if (args.scenario == 1 and n < number_of_cauitous_vehicles):
+            if (args.scenario == 1 and n < number_of_normal_vehicles):
                 # cautious cars
-                speed_perc = 10*random.rand()+30 #60-70% of the speed limit
-                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
-            elif (args.scenario == 1):
-                # normal cars
                 speed_perc = 10*random.rand()+10 #80-90% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
             if(args.scenario == 2 and n < number_of_aggressive_vehicles):
                 # aggressive cars
-                speed_perc = 10*random.rand()-10 #110-120% of the speed limit
+                speed_perc = -10*random.rand()-10 #110-120% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
                 traffic_manager.ignore_lights_percentage(vehicle,50) # ignore lights 50% of the time
                 traffic_manager.ignore_vehicles_percentage(vehicle,10) # ignore vehicles 10% of the time
                 traffic_manager.ignore_walkers_percentage(vehicle,5) # ignore walkers 5% of the time
-            elif(args.scenario == 2):
-                # normal cars
-                speed_perc = 10*random.rand()+10 #80-90% of the speed limit
-                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
         if (args.scenario == 0):
-             print('spawned %d cautious vehicles and %d normal vehicles.' % (number_of_cauitous_vehicles, number_of_normal_vehicles))
+             print('spawned %d cautious vehicles.' % (number_of_cauitous_vehicles))
 
         if (args.scenario == 1):
-             print('spawned %d cautious vehicles and %d normal vehicles.' % (number_of_cauitous_vehicles, number_of_normal_vehicles))
+             print('spawned %d normal vehicles.' % (number_of_normal_vehicles))
 
         if (args.scenario == 2):
-             print('spawned %d aggressive vehicles and %d normal vehicles.' % (number_of_aggressive_vehicles, number_of_normal_vehicles))
+             print('spawned %d aggressive vehicles.' % (number_of_aggressive_vehicles))
 
         # -------------
         # Spawn Walkers
