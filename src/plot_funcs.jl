@@ -1,19 +1,20 @@
 using POMDPs
 using Plots
+using ProgressBars
 
 function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiveness=:normal)
     
     get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
     get_state_blk(idx::Int) = [:yes, :no][idx]
     
-    X = rival_blocking_range = collect(1 : 0.1 : 2)
-    Y = rival_pos_range = collect(1 : 0.1 : 4)
-    Z = []
+    X = rival_blocking_range = collect(1 : 0.001 : 2)
+    Y = rival_pos_range = collect(1 : 0.001 : 4)
+    Z = zeros(length(Y), length(X))
     
-    """ Loop through `rival_pos` and `rival_blocking` """
-    for j in rival_blocking_range
-        for i in rival_pos_range
-            # _pct is the probability of _cl
+    # Loop through `rival_pos` and `rival_blocking`
+    for (j_key, j) in ProgressBars.tqdm(enumerate(rival_blocking_range))
+        for (i_key, i) in enumerate(rival_pos_range)
+            # *_pct is the probability of *_cl
             i_pct, i_cl, i_fl = i %1, ceil(Int, i), floor(Int, i)
             j_pct, j_cl, j_fl = j %1, ceil(Int, j), floor(Int, j)
             s_pct = [i_pct*j_pct, (1-i_pct)*j_pct, i_pct*(1-j_pct), (1-i_pct)*(1-j_pct)]
@@ -30,8 +31,15 @@ function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiv
 
             b = DiscreteBelief(pomdp, state_list, state_probs)
             a = POMDPs.action(pol, b)
-            push!(Z, a)
+            Z[i_key, j_key] = a
         end
     end
-    return X, Y, Z
+
+    plt = Plots.heatmap(X, Y, Z, title="Ego Position: $ego_pos, Rival Aggr: $rival_aggresiveness")
+    xlabel!(plt, "Rival Blocking")
+    ylabel!(plt, "Rival Position")
+    yticks!(plt, [1,2,3,4], ["before", "at", "inside", "after"])
+    xticks!(plt, [1,2], ["yes", "no"])
+
+    return X, Y, Z, plt
 end
