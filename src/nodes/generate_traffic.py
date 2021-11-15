@@ -13,6 +13,8 @@ import os
 import sys
 import time
 
+from numpy.lib.function_base import append
+
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
@@ -27,7 +29,19 @@ from carla import VehicleLightState as vls
 
 import argparse
 import logging
+import numpy as np
 from numpy import random
+
+def is_within_distance(spawn_transform, spct_transform, max_distance):
+    difference_vector = np.array([
+        spawn_transform.location.x - spct_transform.location.x,
+        spawn_transform.location.y - spct_transform.location.y
+    ])
+    distance = np.linalg.norm(difference_vector)
+    if distance > max_distance:
+        return False
+    else:
+        return True
 
 def get_actor_blueprints(world, filter, generation):
     bps = world.get_blueprint_library().filter(filter)
@@ -73,6 +87,7 @@ def parse_arguments():
     argparser.add_argument('--respawn', action='store_true', default=False, help='Automatically respawn dormant vehicles (only in large maps)')
     argparser.add_argument('--no-rendering', action='store_true', default=False, help='Activate no rendering mode')
     argparser.add_argument('--scenario', default=0, type=int,help='Traffic scenario number, 0: normal, 1: busy, 2: aggressive')
+    argparser.add_argument('--spawn_radius', default=100, type=int,help='Radius around the spectator to spawn new actors')
     args = argparser.parse_args()
     return args
 
@@ -116,6 +131,7 @@ def main(args):
 
     vehicles_list = []
     walkers_list = []
+    spawn_points = []
     all_id = []
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
@@ -124,15 +140,24 @@ def main(args):
 
     try:
         world = client.get_world()
-        #world = client.load_world('Town02')
+        world = client.load_world('Town01_Opt')
 
         number_of_vehicles = args.number_of_vehicles
         number_of_walkers = args.number_of_walkers
-        spawn_points = world.get_map().get_spawn_points()        
-        number_of_spawn_points = len(spawn_points)
+        map_spawn_points = world.get_map().get_spawn_points()        
+        number_of_spawn_points = len(map_spawn_points)
+
+        spct = world.get_spectator()
+        spct_transform = spct.get_transform()
+
+        # only spawn at spawn positions within 100m radius of the spectator
+        for n, transform in enumerate(map_spawn_points):
+            if (is_within_distance(spct_transform, transform, args.spawn_radius)):
+                spawn_points.append(transform)       
+        number_of_spawn_points = len(spawn_points) 
+
         print('spawn points number: ')
         print(number_of_spawn_points)
-            
 
         # Traffic manager setup
         traffic_manager = client.get_trafficmanager(args.tm_port)
@@ -203,7 +228,7 @@ def main(args):
         for n, transform in enumerate(spawn_points):
             if n >= number_of_vehicles:
                 break   
-
+            print(n)
             blueprint = set_blueprint(blueprints, args)
 
             vehicle = world.spawn_actor(blueprint, transform)
