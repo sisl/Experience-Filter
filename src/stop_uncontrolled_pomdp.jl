@@ -1,29 +1,48 @@
 using POMDPs
 using POMDPModels
-using POMDPModelTools
-using POMDPSimulators
+# using POMDPModelTools
+# using POMDPSimulators
 using POMDPPolicies
-using BeliefUpdaters: DiscreteBelief, DiscreteUpdater
-using SARSOP, QMDP
 using Parameters
+using QMDP
 
 include("helper_funcs.jl")
-include("plot_funcs.jl")
 
 abstract type DecisionProblem end
 
 """
 The Stop-Uncontrolled Decision Problem.
 """
-@with_kw struct StopUncontrolledDP <: DecisionProblem
+@with_kw struct StopUncontrolled <: DecisionProblem
     Action_Space::AbstractDict
     State_Space::AbstractDict
     Obs_Space::AbstractDict
     Trans_Func::AbstractArray
     Obs_Func::AbstractArray
     Reward_Func::AbstractArray
-    Pomdp::POMDPs.POMDP
     discount::Float64
+    Pomdp::POMDPs.POMDP
+    policy::POMDPPolicies.AlphaVectorPolicy
+end
+
+function StopUncontrolled(Action_Space, State_Space, Obs_Space, Trans_Func, Obs_Func, Reward_Func; discount=0.95, solver=QMDPSolver, max_iterations=1000000, belres=1.0e-4, verbose=false)
+
+    # Model
+    Pomdp = TabularPOMDP(Trans_Func, Reward_Func, Obs_Func, discount);
+
+    # Solver
+    solver = QMDPSolver(max_iterations=max_iterations, belres=belres, verbose=verbose)
+    policy = solve(solver, Pomdp)
+
+    return StopUncontrolled(Action_Space,
+                            State_Space,
+                            Obs_Space,
+                            Trans_Func,
+                            Obs_Func,
+                            Reward_Func,
+                            discount,
+                            Pomdp,
+                            policy)
 end
 
 
@@ -305,7 +324,6 @@ get_obs_prob(DP::DecisionProblem, o::NamedTuple, a::Symbol, s::NamedTuple) = DP.
 get_obs_prob(Obs_Func::AbstractArray{Float64, 3}, O_space::Dict, A_space::Dict, S_space::Dict, o::NamedTuple, a::Symbol, s::NamedTuple) = Obs_Func[O_space[o],A_space[a],S_space[s]]
 
 
-
 """
 Define the Reward Function for the Stop-Uncontrolled DP.
 
@@ -389,70 +407,3 @@ function get_observations(s::NamedTuple, a::Symbol, State_Space, Action_Space, O
     return pretty_table(data; header = vcat(collect(string.(fieldnames(o[1]))), "Prob"), hlines=0:length(idxs))
 end
 
-
-
-
-
-
-
-
-
-
-
-
-# Define a Stop-Uncontrolled DP POMDP
-A_vals = (:stop, :edge, :go)
-Action_Space = create_Action_Space(A_vals)
-
-S_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggresiveness)
-vehicle_pos_vals = (:before, :at, :inside, :after)
-binary_vals = (:yes, :no)
-rival_aggsv_vals = (:cautious, :normal, :aggressive)
-S_vals = [vehicle_pos_vals, vehicle_pos_vals, binary_vals, rival_aggsv_vals]
-State_Space = create_State_Space(S_ids, S_vals)
-
-O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_vel)
-pos_max = length(vehicle_pos_vals)
-pos_increment = 1
-vel_min = 1
-vel_max = 3
-vel_increment = 1
-O_ran = [range(1, pos_max, step=pos_increment), range(1, pos_max, step=pos_increment), range(1, 2, step=pos_increment), range(vel_min, vel_max, step=vel_increment)]
-Obs_Space = create_Obs_Space(O_ids, O_ran)
-
-TF_params = (pos_stays=0.80, blocking_changes=0.20, aggresiveness_changes=0.00, aggresiveness_stays=0.70)
-Trans_Func = define_Trans_Func(State_Space, Action_Space, TF_params)
-
-OF_params = (pos_guess = 0.99, blocking_guess = 0.99, aggr_guess = 0.99)    # TODO: This is fully observable. Change this.
-Obs_Func = define_Obs_Func(Obs_Space, Action_Space, State_Space, OF_params)
-
-RF_params = (final_reward = 1000, crash_reward = -10000, taken_over_reward = -1000)
-Reward_Func = define_Reward_Func(State_Space, Action_Space, RF_params)
-
-
-# Model
-discount = 0.95
-pomdp = TabularPOMDP(Trans_Func, Reward_Func, Obs_Func, discount);
-
-# Stepthrough
-# solver = SARSOPSolver()
-solver = QMDPSolver(max_iterations=1000000, belres=1.0e-4, verbose=true)
-policy = solve(solver, pomdp)
-
-for (s, a, r) in stepthrough(pomdp,policy, "s,a,r", max_steps=10)
-    printt(get_state_desc(State_Space, s))
-    @show a
-    @show r
-    println()
-end
-
-# function uniform_belief(pomdp)
-#     state_list = ordered_states(pomdp)
-#     ns = length(state_list)
-#     return DiscreteBelief(pomdp, state_list, ones(ns) / ns)
-# end
-
-# # Policy can be used to map belief to actions
-# b = uniform_belief(pomdp) # from POMDPModelTools
-# a = action(policy, b)
-# bu = DiscreteUpdater(pomdp)

@@ -26,7 +26,7 @@ def parse_arguments():
 
     parser.add_argument('-a', '--actor_id', type=int, default=-1, help="ID of the actor of interest. Enter `-1` for spectator.")
     parser.add_argument('-t', '--traffic_signs', type=str, default="static.prop.trafficcone01", help="Traffic signs to consider.")
-    parser.add_argument('-n', '--number_of_signs', type=int, default=3, help="Number of traffice signs to consider.")
+    parser.add_argument('-N', '--number_of_signs', type=int, default=3, help="Number of traffice signs to consider.")
 
     parser.add_argument('-S', '--sleeptime', type=float, default=0.25, help="Sleep-time between each publication.")
     parser.add_argument('-H', '--host', type=str, default='127.0.0.1' ,help="Host of running Carla server. Default: localhost.")
@@ -47,14 +47,13 @@ def main(args):
 
 	while True:
 		actor_list = world.get_actors()
-		aoi_location = aoi.get_location()
 		tsoi = actor_list.filter("*{}*".format(args.traffic_signs))
 
-		distances = [(carla.Location.distance(aoi.get_location(), item.get_location()), item.get_transform()) for item in tsoi]
+		distances = [(carla.Location.distance(aoi.get_location(), item.get_location()), item.get_transform(), item.id) for item in tsoi]
 		# import pdb; pdb.set_trace()
 
 		# print("-----------------------------------")
-		for item in heapq.nsmallest(args.number_of_signs, distances): print(f"AV: {str(aoi.get_transform())}   Target: {str(item[1])}   Distance: {item[0]}")
+		for item in heapq.nsmallest(args.number_of_signs, distances): print(f"AV: {str(aoi.get_transform())}   Target: {str(item[2])}   {str(item[1])}   Distance: {item[0]}")
 		print("-----------------------------------")
 
 		time.sleep(args.sleeptime)

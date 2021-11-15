@@ -8,7 +8,7 @@ sys.path.append('./PythonAPI/carla/')
 
 # Create Carla client and world
 client = carla.Client('localhost', 2000)
-client.set_timeout(2.0)
+client.set_timeout(10.0)
 world = client.load_world("Town01_Opt")
 world.set_weather(carla.WeatherParameters.WetCloudySunset)
 
