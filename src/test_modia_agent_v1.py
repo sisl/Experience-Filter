@@ -46,23 +46,22 @@ rival1_tf = carla.Transform(carla.Location(x=338.254791, y=325.919067, z=1.0), c
 rival1_bp = blueprint_library.find('vehicle.tesla.model3')
 rival1 = world.spawn_actor(rival1_bp, rival1_tf)
 my_actors_list.append(rival1)
-rival1_id = rival1.id
 
-rival2_tf = carla.Transform(carla.Location(x=318.645416, y=325.919067, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
+rival2_tf = carla.Transform(carla.Location(x=308.645416, y=325.919067, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 rival2_bp = blueprint_library.find('vehicle.mercedes.coupe')
 rival2 = world.spawn_actor(rival2_bp, rival2_tf)
 my_actors_list.append(rival2)
-rival2_id = rival2.id
 
 # Spawn Ego vehicle
 vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
-# vehicle_init_tf = carla.Transform(carla.Location(x=335.473236, y=316.107178, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000))
+# vehicle_init_tf = carla.Transform(carla.Location(x=335.473236, y=316.107178, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000))   # right in front of stop sign
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
-
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 my_actors_list.append(my_vehicle)
-my_vehicle_id = my_vehicle.id
+print(f"My vehicle ID: {my_vehicle.id}")
+
+## You might want to orient the spectator here, wrt `my_vehicle.id`.
 
 # Reset back to init tf
 my_vehicle.set_transform(vehicle_init_tf)
@@ -70,8 +69,8 @@ time.sleep(1)
 
 # Start an agent
 init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
-agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP)
-destination = carla.Transform(carla.Location(x=324.935669, y=326.853607, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
+agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=True)
+destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 agent.set_destination(destination.location)
 
 

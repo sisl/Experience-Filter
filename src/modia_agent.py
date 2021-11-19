@@ -13,13 +13,14 @@ from PythonAPI.carla.agents.tools.misc import get_speed, is_within_distance, get
 from julia import MODIA
 from julia import Base as jlBase
 
+import ipdb
 
 class MODIAAgent(object):
     """
     MODIAAgent creates multiple decision components from pre-solved decision problems.
     """
 
-    def __init__(self, vehicle, init_belief, StopUncontrolledDP, target_speed=20, opt_dict={}):
+    def __init__(self, vehicle, init_belief, StopUncontrolledDP, target_speed=20, verbose_belief=False, opt_dict={}):
         """
         Initialization the agent paramters, the local and the global planner.
 
@@ -32,8 +33,12 @@ class MODIAAgent(object):
         self._world = self._vehicle.get_world()
         self._map = self._world.get_map()
         self._last_traffic_light = None
+        self._destination_reached_threshold = 4.0    # meters
+        self._waypoint_reached_threshold = 1    # int
+
 
         # Params for MODIA
+        self.verbose_belief = verbose_belief
         self._actions = {1: "stop", 2: "edge", 3: "go"}
         self._positions = {"before": 1.0, "at": 2.0, "inside": 3.0, "after": 4.0}
         self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_vel")
@@ -57,6 +62,7 @@ class MODIAAgent(object):
         self._base_stop_sign_threshold = 1.0  # meters
         self._stop_sign_stop_amount = 1.5   # seconds
 
+        self._next_stop_sign = None
         self._last_stop_sign = None
         self._last_stop_sign_road_id = None
         self._last_stop_sign_detect_time = None
@@ -152,7 +158,7 @@ class MODIAAgent(object):
             :param end_location (carla.Location): final location of the route
             :param start_location (carla.Location): starting location of the route
         """
-
+        self._destination = end_location
         self._reset_histories()
 
         if not start_location:
@@ -220,7 +226,10 @@ class MODIAAgent(object):
         if affected_by_tlight:
             list_of_actions.append(1)  # send "stop"
 
-        # Check if the vehicle is affected by a stop sign
+        # Check if the vehicle is affected by a stop sign.
+        # Currently, the ego vehicle will only stop is there are DCs, a.k.a. other vehicles nearby the stop sign.
+        # Hence, if there are not DCs, the ego vehicle NOT stop at the stop sign.
+        # This is because `list_of_actions` is ignored if `self._Stop_Uncontrolled_DCs` is empty.
         max_stop_sign_distance = self._base_stop_sign_threshold + vehicle_speed
         affected_by_stop_sign, _ = self._affected_by_stop_sign(stop_signs_list, max_stop_sign_distance)
         if affected_by_stop_sign:
@@ -231,33 +240,45 @@ class MODIAAgent(object):
         self._refresh_DCs(vehicle_list)
         obs = self._get_observations()
         obs_jl_for_DCs = self._get_obs_corresponding_idx(obs)   # list of obs_jl for each DC
-        print(obs_jl_for_DCs)
+        # print(obs_jl_for_DCs)
         DC_actions = self._update_DC_beliefs(self._last_action, obs_jl_for_DCs)
         list_of_actions.extend(DC_actions)
 
-        # import ipdb; ipdb.set_trace()
-
-        # Pass control input
+        # Get suggested control inputs from local planner
         control = self._local_planner.run_step()
-        a_idx, act = self._get_safest_action(list_of_actions)
-
-        # Record histories
-        self._record_to_history(self._last_action, obs_jl_for_DCs)
-        self._last_action = a_idx
-
-        if act == "stop":
-            return self.add_emergency_stop(control)
-
-        elif act == "go":
+        
+        if not self._Stop_Uncontrolled_DCs:
+            # If there are no DCs, proceed as usual
             return control
 
-        else:   # edge
-            # TODO.
-            return control
+        else:
+            # Verbose DC beliefs to console
+            if self.verbose_belief:
+                MODIA.py_tabulate_belief(self._State_Space, self._Stop_Uncontrolled_DCs)
+
+            # Pass control input
+            a_idx, act = self._get_safest_action(list_of_actions)
+
+            # Record histories
+            self._record_histories(self._last_action, obs_jl_for_DCs)
+            self._last_action = a_idx
+
+            if act == "stop":
+                return self.add_emergency_stop(control)
+
+            elif act == "go":
+                return control
+
+            else:   # edge
+                # TODO.
+                return control
+
 
     def done(self):
         """Check whether the agent has reached its destination."""
-        return self._local_planner.done()
+        print(f"Distance to destination: {tf_distance(self._destination, self._vehicle.get_location())}")
+        print(f"No of waypoint in local planner: {len(self._local_planner._waypoints_queue)}")
+        return self._local_planner.done() or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold
 
     def get_observation_history(self):
         "Get observation history of the most recent episode."
@@ -284,10 +305,15 @@ class MODIAAgent(object):
         self._ignore_vehicles = active
 
     def _construct_obs(self, names, vals):
+        """Wrapper to create Julia NamedTuples from Python."""
         return MODIA.py_construct_obs(names, vals)
 
     def _get_position_wrt_stop_sign(self, vehicle, is_ego=False):
+        """Determine the position of a vehicle wrt a stop sign."""
+        
         stop_sign = self._last_stop_sign
+        if not stop_sign:
+            stop_sign = self._next_stop_sign
         dist = distance_among_actors(vehicle, stop_sign)
         angle = ref_angle(vehicle, stop_sign)
 
@@ -333,7 +359,7 @@ class MODIAAgent(object):
             obs.append(self._rival_blocking[rival_blk])
 
             # Get rival aggressiveness
-            rival_vel = vector3D_norm(rival.get_velocity())
+            rival_vel = get_speed(rival)
             if rival_vel <= self._cautious_threshold:
                 obs.append(self._aggsv_vals["cautious"])
                 
@@ -349,6 +375,7 @@ class MODIAAgent(object):
 
 
     def _get_obs_corresponding_idx(self, obs):
+        """Get the Julia correspondence of observations received from the Carla server."""
         names = self._observing
         result = dict()
         for rival_id, vals in obs.items():
@@ -357,21 +384,35 @@ class MODIAAgent(object):
             result[rival_id] = item
         return result
 
-    def _record_to_history(self, a_idx, o_idx):
+    def _record_histories(self, a_idx, o_idx):
+        """Record histories during the episode."""
         self._action_history.append(a_idx)
         self._observation_history.append(o_idx)
 
     def _reset_histories(self):
+        """Reset the history records, typically executed when a new destination is set."""
         self._observation_history = []
         self._action_history = []
 
     def _refresh_DCs(self, vehicle_list):
+        """Destroy DCs when they are no longer of interest, and check if new DCs need to be created."""
         ego_location = self._vehicle.get_location()
-        rivals_to_consider = [item for item in vehicle_list if carla.Location.distance(ego_location, item.get_location()) <= self._consideration_diameter]
+        rivals_to_consider = [item.id for item in vehicle_list if carla.Location.distance(ego_location, item.get_location()) <= self._consideration_diameter]
+        rivals_to_consider.remove(self._vehicle.id)    # don't consider the ego vehicle as a rival
+
+        DC_keys = self._Stop_Uncontrolled_DCs.keys()
+        # Destroy DCs
+        try:
+            for ky in DC_keys:
+                if ky not in rivals_to_consider:
+                    _ = self._Stop_Uncontrolled_DCs.pop(ky)
+        except KeyError:
+            pass
         
+        # Add DCs
         for rv in rivals_to_consider:
-            if rv.id not in self._Stop_Uncontrolled_DCs:
-                self._Stop_Uncontrolled_DCs[rv.id] = self._init_belief
+            if rv not in self._Stop_Uncontrolled_DCs:
+                self._Stop_Uncontrolled_DCs[rv] = self._init_belief
 
     def _update_DC_beliefs(self, a_idx, obs_jl_for_DCs):
         """Update DC beliefs and also return the recommended action from each DC."""
@@ -382,8 +423,13 @@ class MODIAAgent(object):
         return DC_actions
 
     def _get_safest_action(self, list_of_actions):
-        a = min(list_of_actions)
-        return a, self._actions[a]    # e.g. (1, :stop)
+        """Determine the safest action among a list of actions. Preference is specified in `self._actions`."""
+        if list_of_actions:
+            a = min(list_of_actions)
+            return a, self._actions[a]    # e.g. (1, :stop)
+        else:   # there are no DCs
+            a = 3   # :go
+            return 
 
     def _affected_by_traffic_light(self, lights_list=None, max_distance=None):
         """
@@ -435,7 +481,6 @@ class MODIAAgent(object):
 
         return (False, None)
 
-
     def _affected_by_stop_sign(self, stop_signs_list=None, max_distance=None):
         """
         Method to check if there is a stop affecting the vehicle.
@@ -461,6 +506,8 @@ class MODIAAgent(object):
             else:
                 return (True, self._last_stop_sign_road_id)
 
+        nearest_stop_sign_dist = self._consideration_diameter * 2
+
         for stop_sign in stop_signs_list:
             object_location = stop_sign.get_location()
             object_waypoint = self._map.get_waypoint(object_location)
@@ -476,6 +523,10 @@ class MODIAAgent(object):
             # Check whether the stop sign is pointed in the direction that the ego vehicle cares
             if dot_ve_wp < 0:
                 continue
+
+            dist = tf_distance(object_waypoint.transform.location, self._vehicle.get_location())
+            if dist < nearest_stop_sign_dist:
+                self._next_stop_sign = stop_sign
 
             if is_within_distance(object_waypoint.transform, self._vehicle.get_transform(), max_distance, [0, 90]):
                 self._last_stop_sign_road_id = object_waypoint.road_id

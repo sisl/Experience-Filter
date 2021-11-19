@@ -1,8 +1,10 @@
 using POMDPs
+using POMDPPolicies: ordered_states
+using BeliefUpdaters: DiscreteBelief
 using Plots
 using ProgressBars
 
-function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiveness=:normal)
+function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiveness=:normal, show_map_only=true)
     
     get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
     get_state_blk(idx::Int) = [:yes, :no][idx]
@@ -25,7 +27,7 @@ function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiv
             s4 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness)
 
             s_list = [State_Space[i] for i in [s1, s2, s3, s4]]
-            state_list = ordered_states(pomdp)
+            state_list = POMDPPolicies.ordered_states(pomdp)
             state_probs = zeros(length(state_list))
             state_probs[s_list] = s_pct
 
@@ -41,5 +43,8 @@ function get_policy_map(pol::POMDPs.Policy, S_space; ego_pos=:at, rival_aggresiv
     yticks!(plt, [1,2,3,4], ["before", "at", "inside", "after"])
     xticks!(plt, [1,2], ["yes", "no"])
 
-    return X, Y, Z, plt
+    return show_map_only ? plt : (X, Y, Z, plt)
+
 end
+
+get_policy_map(DP::DecisionProblem) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=:at, rival_aggresiveness=:normal)

@@ -386,7 +386,7 @@ function get_transitions(s::NamedTuple, a::Symbol, State_Space, Action_Space, Tr
     if sort_by == -1 sort_by = size(data, 2) end
     data = sortslices(data, dims=1, by=x->x[sort_by], rev=sort_rev)
 
-    return pretty_table(data; header = vcat(collect(string.(fieldnames(s))), "Prob"), hlines=0:length(idxs))
+    return pretty_table(data; header = vcat(collect(string.(fieldnames(s))), "Prob"), hlines=0:length(sp_probs)+1)
 end
 
 
@@ -404,6 +404,5 @@ function get_observations(s::NamedTuple, a::Symbol, State_Space, Action_Space, O
     if sort_by == -1 sort_by = size(data, 2) end
     data = sortslices(data, dims=1, by=x->x[sort_by], rev=sort_rev)
 
-    return pretty_table(data; header = vcat(collect(string.(fieldnames(o[1]))), "Prob"), hlines=0:length(idxs))
+    return pretty_table(data; header = vcat(collect(string.(fieldnames(o[1]))), "Prob"), hlines=0:length(0_probs)+1)
 end
-

@@ -4,7 +4,7 @@ import numpy as np
 import random
 
 def printl(L, log_name=""):
-    """Print elements of an iterable object."""
+    """Print elements of an iterable object. Useful for objects like L = <carla.libcarla.ActorList>."""
     if log_name: print(log_name)
     for idx, item in enumerate(L):
         print(idx, item)
@@ -60,3 +60,16 @@ def ref_angle(target_actor, reference_actor):
 
     return angle
 
+def tf_distance(target_location, reference_location):
+    """
+    Calculate distances between two object transforms.
+
+    :param target_location: location of the target object
+    :param reference_location: location of the reference object
+    """
+    target_vector = np.array([
+        target_location.x - reference_location.x,
+        target_location.y - reference_location.y
+    ])
+    norm_target = np.linalg.norm(target_vector)
+    return norm_target

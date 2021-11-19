@@ -24,10 +24,8 @@ export
 include("helper_funcs.jl")
 export
     printt,
-	py_construct_obs
+	py_construct_obs,
+	py_tabulate_belief
 
-# include("plot_funcs.jl")
-# export
-#     get_policy_map
 
 end  # module
