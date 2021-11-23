@@ -88,6 +88,7 @@ def parse_arguments():
     argparser.add_argument('--no-rendering', action='store_true', default=False, help='Activate no rendering mode')
     argparser.add_argument('--scenario', default=0, type=int,help='Traffic scenario number, 0: normal, 1: busy, 2: aggressive')
     argparser.add_argument('--spawn_radius', default=100, type=int,help='Radius around the spectator to spawn new actors')
+    argparser.add_argument('--actor_id', default=0, type=int)
     args = argparser.parse_args()
     return args
 
@@ -138,9 +139,12 @@ def main(args):
     synchronous_master = False
     random.seed(args.seed if args.seed is not None else int(time.time()))
 
+    print('actor_id')
+    print(args.actor_id)
+
     try:
         world = client.get_world()
-        world = client.load_world('Town01_Opt')
+        #world = client.load_world('Town01_Opt')
 
         number_of_vehicles = args.number_of_vehicles
         number_of_walkers = args.number_of_walkers
@@ -149,12 +153,21 @@ def main(args):
 
         spct = world.get_spectator()
         spct_transform = spct.get_transform()
+        
 
         # only spawn at spawn positions within 100m radius of the spectator
-        for n, transform in enumerate(map_spawn_points):
-            if (is_within_distance(spct_transform, transform, args.spawn_radius)):
-                spawn_points.append(transform)       
-        number_of_spawn_points = len(spawn_points) 
+        if (args.actor_id == 0):
+            for n, transform in enumerate(map_spawn_points):
+                if (is_within_distance(spct_transform, transform, args.spawn_radius)):
+                    spawn_points.append(transform)       
+            number_of_spawn_points = len(spawn_points)
+        else:
+            aoi = world.get_actor(args.actor_id)
+            actor_transform = aoi.get_transform()
+            for n, transform in enumerate(map_spawn_points):
+                if (is_within_distance(actor_transform, transform, args.spawn_radius)):
+                    spawn_points.append(transform)       
+            number_of_spawn_points = len(spawn_points)
 
         print('spawn points number: ')
         print(number_of_spawn_points)
