@@ -23,7 +23,7 @@ export
 
 include("helper_funcs.jl")
 export
-    printt,
+	printt,
 	py_construct_obs,
 	py_tabulate_belief
 

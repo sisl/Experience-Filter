@@ -35,7 +35,6 @@ class MODIAAgent(object):
         self._destination_reached_threshold = 4.0    # meters
         self._waypoint_reached_threshold = 1    # int
 
-
         # Params for MODIA
         self.verbose_belief = verbose_belief
         self._actions = {1: "stop", 2: "edge", 3: "go"}
@@ -67,6 +66,9 @@ class MODIAAgent(object):
         self._last_stop_sign_road_id = None
         self._last_stop_sign_detect_time = None
 
+        self._deadlock_countdown = None
+        self._deadlock_allowance = 10.0    # seconds
+
         self._at_pos_threshold = 20.0   # meters        # rival: smaller than this is "at"
         self._inside_pos_threshold = 15.0   # meters    # rival: smaller than this is "inside"
         self._after_pos_threshold = 70.0   # degrees    # ego and rival: smaller than this is "after"
@@ -82,8 +84,8 @@ class MODIAAgent(object):
         self._target_speed = target_speed
         self._sampling_resolution = 2.0
         self._base_tlight_threshold = 5.0  # meters
-        self._base_vehicle_threshold = 5.0  # meters
-        self._max_brake = 0.5
+        self._base_vehicle_threshold = 2.0  # meters
+        self._max_brake = 0.9
 
         # Change parameters according to the dictionary
         opt_dict['target_speed'] = target_speed
@@ -103,8 +105,15 @@ class MODIAAgent(object):
             self._max_steering = opt_dict['max_brake']
 
         # Initialize the planners
-        self._local_planner = LocalPlanner(self._vehicle, opt_dict=opt_dict)
+        self._local_planner = LocalPlanner(self._vehicle, opt_dict = {'dt': 0.001, 'target_speed': 100})
         self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
+
+        if verbose_belief:
+            try:
+                print("Compiling tabulations for `verbose_belief`.")
+                MODIA.py_tabulate_belief(self._State_Space, {"init": self._init_belief}, prob_threshold=0.0)
+            except:
+                pass
 
     def add_emergency_stop(self, control):
         """
@@ -215,7 +224,7 @@ class MODIAAgent(object):
         vehicle_speed = get_speed(self._vehicle) / 3.6
 
         # Check for possible vehicle obstacles
-        max_vehicle_distance = self._base_vehicle_threshold + vehicle_speed
+        max_vehicle_distance = self._base_vehicle_threshold + 0.5*vehicle_speed
         affected_by_vehicle, _ = self._vehicle_obstacle_detected(vehicle_list, max_vehicle_distance)
         if affected_by_vehicle:
             list_of_actions.append(1)  # send "stop"
@@ -273,12 +282,13 @@ class MODIAAgent(object):
                 # TODO.
                 return control
 
-
     def done(self):
         """Check whether the agent has reached its destination."""
         print(f"Distance to destination: {tf_distance(self._destination, self._vehicle.get_location())}")
         print(f"No of waypoint in local planner: {len(self._local_planner._waypoints_queue)}")
-        return self._local_planner.done() or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold
+        return self._local_planner.done() \
+            or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold \
+            or self._deadlocked()
 
     def get_observation_history(self):
         "Get observation history of the most recent episode."
@@ -303,6 +313,22 @@ class MODIAAgent(object):
     def ignore_vehicles(self, active=True):
         """(De)activates the checks for other vehicles."""
         self._ignore_vehicles = active
+
+    def _deadlocked(self):
+        """Check if the scenario is deadlocked."""
+        print(f"Vehicle speed in m/s: {get_speed(self._vehicle)}")
+
+        if get_speed(self._vehicle) < 0.1:
+            if not self._deadlock_countdown:
+                self._deadlock_countdown = time.time()
+            print(f"Time spent in deadlock: {time.time() - self._deadlock_countdown}")
+        else:
+            self._deadlock_countdown = None
+
+        if self._deadlock_countdown and (time.time() - self._deadlock_countdown > self._deadlock_allowance):
+            return True
+        else:
+            return False
 
     def _construct_obs(self, names, vals):
         """Wrapper to create Julia NamedTuples from Python."""
@@ -360,7 +386,7 @@ class MODIAAgent(object):
             obs.append(self._positions[rival_pos])
 
             # Get rival blocking
-            rival_blk, _ = self._is_vehicle_blocking(rival)
+            rival_blk, _ = self._is_vehicle_blocking(rival, 1.1*self._base_vehicle_threshold)
             obs.append(self._rival_blocking[rival_blk])
 
             # Get rival aggressiveness
@@ -556,8 +582,6 @@ class MODIAAgent(object):
         if self._ignore_vehicles:
             return (False, None)
 
-        rival_vehicles = []
-
         if not vehicle_list:
             vehicle_list = self._world.get_actors().filter("*vehicle*")
 
@@ -598,7 +622,7 @@ class MODIAAgent(object):
                 return (True, target_vehicle)
         return (False, None)
 
-    def _is_vehicle_blocking(self, target_vehicle):
+    def _is_vehicle_blocking(self, target_vehicle, max_distance):
         ego_transform = self._vehicle.get_transform()
         ego_wpt = self._map.get_waypoint(self._vehicle.get_location())
 
@@ -628,6 +652,6 @@ class MODIAAgent(object):
             y=target_extent * target_forward_vector.y,
         )
 
-        if is_within_distance(target_rear_transform, ego_front_transform, self._base_vehicle_threshold, [0, 90]):
+        if is_within_distance(target_rear_transform, ego_front_transform, max_distance, [0, 90]):
             return (True, target_vehicle)
         return (False, None)
