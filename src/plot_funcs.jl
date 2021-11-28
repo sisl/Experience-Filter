@@ -9,8 +9,8 @@ function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, S_space; ego_po
     get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
     get_state_blk(idx::Int) = [:yes, :no][idx]
     
-    X = rival_blocking_range = collect(1 : 0.001 : 2)
-    Y = rival_pos_range = collect(1 : 0.001 : 4)
+    X = rival_blocking_range = collect(1 : 0.01 : 2)
+    Y = rival_pos_range = collect(1 : 0.01 : 4)
     Z = zeros(length(Y), length(X))
     
     # Loop through `rival_pos` and `rival_blocking`
@@ -47,4 +47,4 @@ function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, S_space; ego_po
 
 end
 
-get_policy_map(DP::DecisionProblem) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=:at, rival_aggresiveness=:normal)
+get_policy_map(DP::DecisionProblem; ego_pos=:at, rival_aggresiveness=:normal, show_map_only=true) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=ego_pos, rival_aggresiveness=rival_aggresiveness, show_map_only=show_map_only)

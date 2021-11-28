@@ -13,7 +13,6 @@ from PythonAPI.carla.agents.tools.misc import get_speed, is_within_distance, get
 from julia import MODIA
 from julia import Base as jlBase
 
-import ipdb
 
 class MODIAAgent(object):
     """
@@ -64,6 +63,7 @@ class MODIAAgent(object):
 
         self._next_stop_sign = None
         self._last_stop_sign = None
+        self._waited_at_stop_sign = False
         self._last_stop_sign_road_id = None
         self._last_stop_sign_detect_time = None
 
@@ -233,14 +233,13 @@ class MODIAAgent(object):
         max_stop_sign_distance = self._base_stop_sign_threshold + vehicle_speed
         affected_by_stop_sign, _ = self._affected_by_stop_sign(stop_signs_list, max_stop_sign_distance)
         if affected_by_stop_sign:
-            print("AT STOP SIGN!!")
+            # print("AT STOP SIGN!!")
             list_of_actions.append(1)  # send "stop"
 
         # Update POMDP belief in each DC
         self._refresh_DCs(vehicle_list)
         obs = self._get_observations()
         obs_jl_for_DCs = self._get_obs_corresponding_idx(obs)   # list of obs_jl for each DC
-        # print(obs_jl_for_DCs)
         DC_actions = self._update_DC_beliefs(self._last_action, obs_jl_for_DCs)
         list_of_actions.extend(DC_actions)
 
@@ -258,6 +257,7 @@ class MODIAAgent(object):
 
             # Pass control input
             a_idx, act = self._get_safest_action(list_of_actions)
+            print(f"Safest action: {self._actions[a_idx]}")
 
             # Record histories
             self._record_histories(self._last_action, obs_jl_for_DCs)
@@ -318,14 +318,19 @@ class MODIAAgent(object):
         angle = ref_angle(vehicle, stop_sign)
 
         if is_ego:
-            if not self._last_stop_sign:
+            # print(f"Ego Dist is {dist}")
+            # print(f"Ego Angle is {angle}")
+            # print(f"Ego Waited is {self._waited_at_stop_sign}")
+            # print(f"Ego Last Stop Sign: {self._last_stop_sign}")
+            # print(f"Expression: {(self._base_stop_sign_threshold + 1.5*vehicle.bounding_box.extent.x)}")
+            if not self._last_stop_sign and not self._waited_at_stop_sign:
                 return "before"
-            elif self._last_stop_sign and angle <= self._after_pos_threshold:
-                self._last_stop_sign = None
+            elif not self._last_stop_sign and self._waited_at_stop_sign and angle <= self._after_pos_threshold:
                 return "after"
-            elif self._last_stop_sign and dist < (self._base_stop_sign_threshold + 1.5*vehicle.bounding_box.extent.x):
+            elif self._last_stop_sign and (not self._waited_at_stop_sign) or (self._waited_at_stop_sign and dist < (self._base_stop_sign_threshold + 1.5*vehicle.bounding_box.extent.x)):
                 return "at"
             else:
+                self._last_stop_sign = None
                 return "inside"
 
         else:
@@ -406,7 +411,7 @@ class MODIAAgent(object):
             for ky in DC_keys:
                 if ky not in rivals_to_consider:
                     _ = self._Stop_Uncontrolled_DCs.pop(ky)
-        except KeyError:
+        except (KeyError, RuntimeError):    # handles dictionary size changes during loop
             pass
         
         # Add DCs
@@ -501,12 +506,13 @@ class MODIAAgent(object):
 
         # If the acting stop sign has already been detected, ignore detection
         if self._last_stop_sign_road_id == ego_vehicle_waypoint.road_id:
-            if time.time() - self._last_stop_sign_detect_time > self._stop_sign_stop_amount:  # ego car has already waited enough at this sign
+            if self._waited_at_stop_sign or (time.time() - self._last_stop_sign_detect_time > self._stop_sign_stop_amount):  # ego car has already waited enough at this sign
+                self._waited_at_stop_sign = True
                 return (False, None)
             else:
                 return (True, self._last_stop_sign_road_id)
 
-        nearest_stop_sign_dist = self._consideration_diameter * 2
+        nearest_stop_sign_dist = self._consideration_diameter
 
         for stop_sign in stop_signs_list:
             object_location = stop_sign.get_location()
@@ -526,6 +532,7 @@ class MODIAAgent(object):
 
             dist = tf_distance(object_waypoint.transform.location, self._vehicle.get_location())
             if dist < nearest_stop_sign_dist:
+                nearest_stop_sign_dist = dist
                 self._next_stop_sign = stop_sign
 
             if is_within_distance(object_waypoint.transform, self._vehicle.get_transform(), max_distance, [0, 90]):
