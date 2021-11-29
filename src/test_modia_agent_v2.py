@@ -50,13 +50,15 @@ my_actors_list.append(my_vehicle)
 print(f"My vehic ID: {my_vehicle.id}")
 # You might want to orient the spectator here, w.r.t. `my_vehicle.id`.
 
-scenario = 1
-spawn_radius = 100 
-vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
 
 # Reset back to init tf
 my_vehicle.set_transform(vehicle_init_tf)
 time.sleep(1)
+
+scenario = 1
+spawn_radius = 100 
+vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
+
 
 # Start an agent
 init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
