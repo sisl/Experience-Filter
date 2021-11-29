@@ -335,7 +335,22 @@ class MODIAAgent(object):
         return MODIA.py_construct_obs(names, vals)
 
     def _get_position_wrt_stop_sign(self, vehicle, is_ego=False):
-        """Determine the position of a vehicle wrt a stop sign."""
+        """
+        Determine the position of a vehicle wrt a stop sign.
+        
+        Rival Position Schematic:
+                |     |
+                |C1  ▲|
+        ________|▼  A2|________
+            ◄ D2       ◄ D1
+            B1 ►       B2 ►
+        ‾‾‾‾‾‾‾‾|C2  ▲|‾‾‾‾‾‾‾‾
+                |▼  A1|(stop)
+                |     |
+        
+        Keep in mind that the POMDP definition may not permit a transition to a previous position, and therefore the belief
+        would not update w.r.t. such observation.
+        """
         
         stop_sign = self._last_stop_sign
         if not stop_sign:
@@ -360,14 +375,72 @@ class MODIAAgent(object):
                 return "inside"
 
         else:
-            if dist < self._inside_pos_threshold and angle > self._after_pos_threshold:
+            stop_sign_yaw = stop_sign.get_transform().rotation.yaw
+            vehicle_yaw = vehicle.get_transform().rotation.yaw
+            yaw_diff = stop_sign_yaw - vehicle_yaw
+
+            # if dist < self._inside_pos_threshold and angle > self._after_pos_threshold:
+            #     return "inside"
+            # elif dist < self._at_pos_threshold and angle > self._after_pos_threshold:
+            #     return "at"
+            # elif angle <= self._after_pos_threshold:
+            #     return "after"
+            # else:
+            #     return "before"
+
+
+            self._rival_A1_dist_threshold = 10
+            self._rival_A_at_dist_threshold = 5
+            self._rival_A2_dist_threshold = 20
+
+            self._rival_B1_angle_threshold = 155
+            self._rival_B_at_angle_threshold = 145
+            self._rival_B2_angle_threshold = 70
+
+            self._rival_D1_angle_threshold = 60
+            self._rival_D_at_angle_threshold = 80
+            self._rival_D2_angle_threshold = 150
+
+
+            if angle_is_approx(yaw_diff, 90):    # A
+
+                # import ipdb; ipdb.set_trace()
+                print(f"Dist: {dist}")
+                print(f"Angle: {angle}")
+                if dist < self._rival_A_at_dist_threshold:
+                    return "at"
+                elif dist > self._rival_A1_dist_threshold and not is_ahead_of_reference(vehicle, stop_sign):
+                    return "before"
+                elif dist > self._rival_A2_dist_threshold and is_ahead_of_reference(vehicle, stop_sign):
+                    return "after"
+                else:
+                    return "inside"
+
+
+            elif angle_is_approx(yaw_diff, 360):    # B
+                if angle > self._rival_B1_angle_threshold:
+                    return "before"
+                elif angle > self._rival_B_at_angle_threshold:
+                    return "at"
+                elif angle < self._rival_B2_angle_threshold:
+                    return "after"
+                else:
+                    return "inside"
+
+            elif angle_is_approx(yaw_diff, 270):    # C
                 return "inside"
-            elif dist < self._at_pos_threshold and angle > self._after_pos_threshold:
-                return "at"
-            elif angle <= self._after_pos_threshold:
-                return "after"
-            else:
-                return "before"
+
+
+            else:  # angle_is_approx(yaw_diff, 180)    # D
+                if angle < self._rival_D1_angle_threshold:
+                    return "before"
+                elif angle < self._rival_D_at_angle_threshold:
+                    return "at"
+                elif angle > self._rival_D2_angle_threshold:
+                    return "after"
+                else:
+                    return "inside"
+
 
     def _get_observations(self):
         """Get observations from the environment for a single step."""
@@ -382,6 +455,7 @@ class MODIAAgent(object):
             obs.append(self._positions[ego_pos])
 
             # Get rival position
+            # import ipdb; ipdb.set_trace()
             rival_pos = self._get_position_wrt_stop_sign(rival, is_ego=False)
             obs.append(self._positions[rival_pos])
 

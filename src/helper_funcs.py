@@ -73,3 +73,33 @@ def tf_distance(target_location, reference_location):
     ])
     norm_target = np.linalg.norm(target_vector)
     return norm_target
+
+def angle_is_approx(query_angle, target_angle, target_delta=45):
+    """Retuns true if `query_angle` is approximately equal to `target_angle`, with a permitted deviation of `delta_target`."""
+    return target_angle - target_delta < query_angle < target_angle + target_delta
+
+def is_ahead_of_reference(query_actor, reference_actor):
+    """
+    Returns True if `query_actor` is ahead of `reference_actor`, w.r.t. to the direction `query_actor` is pointing.
+    
+    Map Compass:
+            +Y (90)
+              |
+    +X (0)————o———— -X (-180)
+              |
+           -Y (-90)
+    """
+    query_yaw = query_actor.get_transform().rotation.yaw
+
+    if angle_is_approx(query_yaw, 0):
+        return query_actor.get_location().x > reference_actor.get_location().x
+
+    elif angle_is_approx(query_yaw, 90):
+        return query_actor.get_location().y > reference_actor.get_location().y
+
+    elif angle_is_approx(query_yaw, -180):
+        return query_actor.get_location().x < reference_actor.get_location().x
+
+    elif angle_is_approx(query_yaw, -90):
+        return query_actor.get_location().y < reference_actor.get_location().y
+
