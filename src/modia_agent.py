@@ -66,6 +66,21 @@ class MODIAAgent(object):
         self._last_stop_sign_road_id = None
         self._last_stop_sign_detect_time = None
 
+        self._rival_A_at_dist_threshold = 4.0
+        self._rival_A2_dist_threshold = 20.0
+
+        self._rival_B1_angle_threshold = 155.0
+        self._rival_B_at_angle_threshold = 145.0
+        self._rival_B2_angle_threshold = 70.0
+
+        self._rival_C1_dist_threshold = 22.0
+        self._rival_C_af_dist_threshold = 18.0
+        self._rival_C2_dist_threshold = 8.0
+
+        self._rival_D1_angle_threshold = 60.0
+        self._rival_D_at_angle_threshold = 80.0
+        self._rival_D2_angle_threshold = 150.0
+
         self._deadlock_countdown = None
         self._deadlock_allowance = 10.0    # seconds
 
@@ -336,7 +351,7 @@ class MODIAAgent(object):
 
     def _get_position_wrt_stop_sign(self, vehicle, is_ego=False):
         """
-        Determine the position of a vehicle wrt a stop sign.
+        Determine the position of a vehicle w.r.t. a stop sign.
         
         Rival Position Schematic:
                 |     |
@@ -359,11 +374,6 @@ class MODIAAgent(object):
         angle = ref_angle(vehicle, stop_sign)
 
         if is_ego:
-            # print(f"Ego Dist is {dist}")
-            # print(f"Ego Angle is {angle}")
-            # print(f"Ego Waited is {self._waited_at_stop_sign}")
-            # print(f"Ego Last Stop Sign: {self._last_stop_sign}")
-            # print(f"Expression: {(self._base_stop_sign_threshold + 1.5*vehicle.bounding_box.extent.x)}")
             if not self._last_stop_sign and not self._waited_at_stop_sign:
                 return "before"
             elif not self._last_stop_sign and self._waited_at_stop_sign and angle <= self._after_pos_threshold:
@@ -379,45 +389,7 @@ class MODIAAgent(object):
             vehicle_yaw = vehicle.get_transform().rotation.yaw
             yaw_diff = stop_sign_yaw - vehicle_yaw
 
-            # if dist < self._inside_pos_threshold and angle > self._after_pos_threshold:
-            #     return "inside"
-            # elif dist < self._at_pos_threshold and angle > self._after_pos_threshold:
-            #     return "at"
-            # elif angle <= self._after_pos_threshold:
-            #     return "after"
-            # else:
-            #     return "before"
-
-
-            self._rival_A1_dist_threshold = 10
-            self._rival_A_at_dist_threshold = 5
-            self._rival_A2_dist_threshold = 20
-
-            self._rival_B1_angle_threshold = 155
-            self._rival_B_at_angle_threshold = 145
-            self._rival_B2_angle_threshold = 70
-
-            self._rival_D1_angle_threshold = 60
-            self._rival_D_at_angle_threshold = 80
-            self._rival_D2_angle_threshold = 150
-
-
-            if angle_is_approx(yaw_diff, 90):    # A
-
-                # import ipdb; ipdb.set_trace()
-                print(f"Dist: {dist}")
-                print(f"Angle: {angle}")
-                if dist < self._rival_A_at_dist_threshold:
-                    return "at"
-                elif dist > self._rival_A1_dist_threshold and not is_ahead_of_reference(vehicle, stop_sign):
-                    return "before"
-                elif dist > self._rival_A2_dist_threshold and is_ahead_of_reference(vehicle, stop_sign):
-                    return "after"
-                else:
-                    return "inside"
-
-
-            elif angle_is_approx(yaw_diff, 360):    # B
+            if angle_is_approx(yaw_diff, 360):    # B
                 if angle > self._rival_B1_angle_threshold:
                     return "before"
                 elif angle > self._rival_B_at_angle_threshold:
@@ -427,17 +399,35 @@ class MODIAAgent(object):
                 else:
                     return "inside"
 
-            elif angle_is_approx(yaw_diff, 270):    # C
-                return "inside"
-
-
-            else:  # angle_is_approx(yaw_diff, 180)    # D
+            elif angle_is_approx(yaw_diff, 180):    # D
                 if angle < self._rival_D1_angle_threshold:
                     return "before"
                 elif angle < self._rival_D_at_angle_threshold:
                     return "at"
                 elif angle > self._rival_D2_angle_threshold:
                     return "after"
+                else:
+                    return "inside"
+
+            elif angle_is_approx(yaw_diff, 90):    # A
+                if dist < self._rival_A_at_dist_threshold:
+                    return "at"
+                else:
+                    if not is_ahead_of_reference(vehicle, stop_sign):
+                        return "before"
+                    else:
+                        if dist > self._rival_A2_dist_threshold:
+                            return "after"
+                        else:
+                            return "inside"
+
+            else:  # angle_is_approx(yaw_diff, 270):    # C
+                if dist < self._rival_C2_dist_threshold or is_ahead_of_reference(vehicle, stop_sign):
+                    return "after"
+                elif dist > self._rival_C1_dist_threshold:
+                    return "before"
+                elif dist > self._rival_C_af_dist_threshold:
+                    return "at"
                 else:
                     return "inside"
 
@@ -455,7 +445,6 @@ class MODIAAgent(object):
             obs.append(self._positions[ego_pos])
 
             # Get rival position
-            # import ipdb; ipdb.set_trace()
             rival_pos = self._get_position_wrt_stop_sign(rival, is_ego=False)
             obs.append(self._positions[rival_pos])
 
@@ -477,7 +466,6 @@ class MODIAAgent(object):
             observations[rv_id] = (*obs, )    # unpack list into tuple
 
         return observations
-
 
     def _get_obs_corresponding_idx(self, obs):
         """Get the Julia correspondence of observations received from the Carla server."""
