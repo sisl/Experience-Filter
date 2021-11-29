@@ -437,12 +437,7 @@ class MODIAAgent(object):
             for ky in DC_keys:
                 if ky not in rivals_to_consider:
                     _ = self._Stop_Uncontrolled_DCs.pop(ky)
-<<<<<<< HEAD
-        #except KeyError:
-        except:
-=======
         except (KeyError, RuntimeError):    # handles dictionary size changes during loop
->>>>>>> 183b2580be45f3c46516bb47c41342bc62f05c3d
             pass
         
         # Add DCs
