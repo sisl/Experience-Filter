@@ -15,6 +15,7 @@ client.set_timeout(10.0)
 world = client.load_world("Town01_Opt")
 world.set_weather(carla.WeatherParameters.WetCloudySunset)
 
+
 connect_julia_api = True
 if connect_julia_api:
     from julia.api import Julia
@@ -41,8 +42,14 @@ my_actors_list = []
 
 
 # Spawn Ego vehicle
-vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
-# vehicle_init_tf = carla.Transform(carla.Location(x=335.473236, y=316.107178, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000))   # right in front of stop sign
+# vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
+
+# second initial location
+vehicle_init_tf = carla.Transform(carla.Location(x=118.207603, y=196.073532, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))  
+
+# third initial location
+#vehicle_init_tf = carla.Transform(carla.Location(x=122.593338, y=-2.000316, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))  
+
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
@@ -63,7 +70,16 @@ vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario
 # Start an agent
 init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
 agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=True)
-destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
+# destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
+
+# second destination location
+destination = carla.Transform(carla.Location(x=87.423035, y=225.054352, z=0.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000))
+
+# third destination location
+# destination = carla.Transform(carla.Location(x=59.589275, y=-2.00, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
+
+
+
 agent.set_destination(destination.location)
 
 while True:
