@@ -24,9 +24,6 @@ if connect_julia_api:
     from julia import MODIA
     StopUncontrolledDP = MODIA.StopUncontrolledDP
     uniform_belief = MODIA.uniform_belief
-    get_action_from_belief = MODIA.get_action_from_belief
-    DiscreteUpdater = MODIA.DiscreteUpdater
-    update_belief = MODIA.update_belief
 
 
 # Import MODIA agent
@@ -61,7 +58,7 @@ my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 my_actors_list.append(my_vehicle)
 print(f"My vehicle ID: {my_vehicle.id}")
 
-## You might want to orient the spectator here, wrt `my_vehicle.id`.
+## You might want to orient the spectator here, w.r.t. `my_vehicle.id`.
 
 # Reset back to init tf
 my_vehicle.set_transform(vehicle_init_tf)
@@ -72,7 +69,6 @@ init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
 agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=True)
 destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 agent.set_destination(destination.location)
-
 
 while True:
     if agent.done():

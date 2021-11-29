@@ -79,7 +79,7 @@ def parse_arguments():
     argparser.add_argument('--filterw', metavar='PATTERN', default='walker.pedestrian.*', help='Filter pedestrian type (default: "walker.pedestrian.*")')
     argparser.add_argument('--generationw', metavar='G', default='2', help='restrict to certain pedestrian generation (values: "1","2","All" - default: "2")')
     argparser.add_argument('--tm-port', metavar='P', default=8000, type=int, help='Port to communicate with TM (default: 8000)')
-    argparser.add_argument('--asynch', action='store_true', help='Activate asynchronous mode execution')
+    argparser.add_argument('--asynch', default=True, help='Activate asynchronous mode execution')
     argparser.add_argument('--hybrid', action='store_true', help='Activate hybrid mode for Traffic Manager')
     argparser.add_argument('-s', '--seed', metavar='S', type=int, help='Set random device seed and deterministic mode for Traffic Manager')
     argparser.add_argument('--car-lights-on', action='store_true', default=False, help='Enable car lights')
@@ -88,7 +88,7 @@ def parse_arguments():
     argparser.add_argument('--no-rendering', action='store_true', default=False, help='Activate no rendering mode')
     argparser.add_argument('--scenario', default=0, type=int,help='Traffic scenario number, 0: normal, 1: busy, 2: aggressive')
     argparser.add_argument('--spawn_radius', default=100, type=int,help='Radius around the spectator to spawn new actors')
-    argparser.add_argument('--actor_id', default=0, type=int)
+    argparser.add_argument('-a', '--actor_id', default=0, type=int)
     args = argparser.parse_args()
     return args
 

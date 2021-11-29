@@ -146,10 +146,25 @@ function define_Trans_Func(State_Space::Dict, Action_Space::Dict, params::NamedT
             for (key_sp, val_sp) in State_Space
 
                 # Transitions of `ego_pos`
-                if key_a == :stop || key_a == :edge
+                if key_a == :stop
                     Trans_Func[val_sp, val_a, val_s] *= key_sp.ego_pos == key_s.ego_pos ? 1.0 : 0.0
+                
+                elseif key_a == :edge
+                    if key_s.ego_pos == :after
+                        Trans_Func[val_sp, val_a, val_s] *= key_sp.ego_pos == :after ? 1.0 : 0.0
 
-                else    # action is not stop
+                    elseif key_sp.ego_pos == key_s.ego_pos
+                        Trans_Func[val_sp, val_a, val_s] *= params.pos_stays_edge
+
+                    elseif key_sp.ego_pos == pos_afterwards(key_s.ego_pos)
+                        Trans_Func[val_sp, val_a, val_s] *= 1.0 - params.pos_stays_edge
+
+                    else
+                        Trans_Func[val_sp, val_a, val_s] *= 0.0
+
+                    end
+
+                elseif key_a == :go
                     if key_s.ego_pos == :after
                         Trans_Func[val_sp, val_a, val_s] *= key_sp.ego_pos == :after ? 1.0 : 0.0
 
@@ -346,12 +361,12 @@ function define_Reward_Func(State_Space::Dict, Action_Space::Dict, params::Named
                 Reward_Func[val_s, val_a] = -100
             elseif key_a == :edge
                 Reward_Func[val_s, val_a] = -1
-            else   # :go
+            elseif key_a == :go
                 Reward_Func[val_s, val_a] = 0
             end
 
             # Final state (desired)
-            if key_s.ego_pos == :after
+            if key_s.ego_pos == :after && key_a == :go
                 Reward_Func[val_s, val_a] = params.final_reward
             end
 

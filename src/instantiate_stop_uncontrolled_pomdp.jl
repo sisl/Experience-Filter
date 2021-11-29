@@ -28,7 +28,7 @@ O_ran = [range(1, pos_max, step=pos_increment), range(1, pos_max, step=pos_incre
 Obs_Space = create_Obs_Space(O_ids, O_ran)
 
 # T-Func
-TF_params = (pos_stays=0.80, blocking_changes=0.20, aggresiveness_changes=0.00, aggresiveness_stays=0.70)
+TF_params = (pos_stays=0.80, pos_stays_edge = 0.97, blocking_changes=0.20, aggresiveness_changes=0.00, aggresiveness_stays=0.70)
 Trans_Func = define_Trans_Func(State_Space, Action_Space, TF_params)
 
 # Z-Func
@@ -36,7 +36,7 @@ OF_params = (pos_guess = 0.99, blocking_guess = 0.99, aggr_guess = 0.99)    # TO
 Obs_Func = define_Obs_Func(Obs_Space, Action_Space, State_Space, OF_params)
 
 # R-Func
-RF_params = (final_reward = 1000, crash_reward = -10000, taken_over_reward = -1000)
+RF_params = (final_reward = 2500, crash_reward = -10000, taken_over_reward = -1000)
 Reward_Func = define_Reward_Func(State_Space, Action_Space, RF_params)
 
 StopUncontrolledDP = StopUncontrolled(Action_Space,

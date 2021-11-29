@@ -14,15 +14,8 @@ def vector3D_norm(vec: carla.Vector3D) -> float:
     """Returns the norm/magnitude (a scalar) of the given carla.3D vector."""
     return np.linalg.norm(np.array([vec.x, vec.y, vec.z])) 
 
-def move_actor(actor, dx=0, dy=0, dz=0):
-    """Chance the location (x,y,z) of any carla actor object by (dx,dy,dz)."""
-    tf_init = actor.get_location()
-    tf_final = carla.Location(x=tf_init.x+dx, y=tf_init.y+dy, z=tf_init.z+dz)
-    actor.set_location(tf_final)
-
-def move_actor_id(actor, world, dx=0, dy=0, dz=0, droll=0, dpitch=0, dyaw=0):
-    """Same as above, but input is Int actor id."""
-    actor = world.get_actor(actor)
+def move_actor(actor, dx=0, dy=0, dz=0, droll=0, dpitch=0, dyaw=0):
+    """Move any carla actor object by (dx, dy, dz, droll, dpitch, dyaw)."""
     tf_init = actor.get_transform()
     tf_init_loc, tf_init_rot = tf_init.location, tf_init.rotation
     tf_final = carla.Transform(carla.Location(x=tf_init_loc.x+dx,
@@ -32,6 +25,13 @@ def move_actor_id(actor, world, dx=0, dy=0, dz=0, droll=0, dpitch=0, dyaw=0):
                                               yaw=tf_init_rot.yaw+dyaw,
                                               roll=tf_init_rot.roll+droll))
     actor.set_transform(tf_final)
+    return
+
+def move_actor_id(actor, world, dx=0, dy=0, dz=0, droll=0, dpitch=0, dyaw=0):
+    """Same as above, but input is Int actor id, instead of the actor object itself."""
+    actor = world.get_actor(actor)
+    return move_actor(actor, dx=dx, dy=dy, dz=dz, droll=droll, dpitch=dpitch, dyaw=dyaw)
+
 
 def distance_among_actors(actor1, actor2):
     """Get distance between two actor objects."""
