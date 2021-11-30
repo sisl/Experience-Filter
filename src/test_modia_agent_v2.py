@@ -62,11 +62,6 @@ print(f"My vehic ID: {my_vehicle.id}")
 my_vehicle.set_transform(vehicle_init_tf)
 time.sleep(1)
 
-scenario = 1
-spawn_radius = 100 
-vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
-
-
 # Start an agent
 init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
 agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=True)
@@ -78,9 +73,11 @@ destination = carla.Transform(carla.Location(x=87.423035, y=225.054352, z=0.0), 
 # third destination location
 # destination = carla.Transform(carla.Location(x=59.589275, y=-2.00, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 
-
-
 agent.set_destination(destination.location)
+
+scenario = 1
+spawn_radius = 100 
+vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
 
 while True:
     if agent.done():

@@ -214,31 +214,39 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0):
 
     for n, transform in enumerate(spawn_points):
         if n >= number_of_vehicles:
-            break   
-        print(n)
+            break  
+        #print('n')
+        #print(n)
         blueprint = set_blueprint(blueprints, args)
 
-        vehicle = world.spawn_actor(blueprint, transform)
-        vehicle.set_autopilot(True,args.tm_port)
-        vehicles_list.append(vehicle)
+        #vehicle = world.spawn_actor(blueprint, transform)
+        vehicle = world.try_spawn_actor(blueprint, transform)
+        
+        if (vehicle !=None):
+            vehicle.set_autopilot(True,args.tm_port)
+            vehicles_list.append(vehicle)
 
-        if (scenario == 0 and n < number_of_cauitous_vehicles):
-            # cautious cars
-            speed_perc = 10*random.rand()+30 #60-70% of the speed limit
-            traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
+            if (scenario == 0 and n < number_of_cauitous_vehicles):
+                # cautious cars
+                speed_perc = 10*random.rand()+30 #60-70% of the speed limit
+                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
-        if (scenario == 1 and n < number_of_normal_vehicles):
-            # cautious cars
-            speed_perc = 10*random.rand()+10 #80-90% of the speed limit
-            traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
+            if (scenario == 1 and n < number_of_normal_vehicles):
+                # cautious cars
+                speed_perc = 10*random.rand()+10 #80-90% of the speed limit
+                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
-        if(scenario == 2 and n < number_of_aggressive_vehicles):
-            # aggressive cars
-            speed_perc = -10*random.rand()-10 #110-120% of the speed limit
-            traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
-            traffic_manager.ignore_lights_percentage(vehicle,50) # ignore lights 50% of the time
-            traffic_manager.ignore_vehicles_percentage(vehicle,10) # ignore vehicles 10% of the time
-            traffic_manager.ignore_walkers_percentage(vehicle,5) # ignore walkers 5% of the time
+            if(scenario == 2 and n < number_of_aggressive_vehicles):
+                # aggressive cars
+                speed_perc = -10*random.rand()-10 #110-120% of the speed limit
+                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
+                traffic_manager.ignore_lights_percentage(vehicle,50) # ignore lights 50% of the time
+                traffic_manager.ignore_vehicles_percentage(vehicle,10) # ignore vehicles 10% of the time
+                traffic_manager.ignore_walkers_percentage(vehicle,5) # ignore walkers 5% of the time
+
+        else:
+            print('vehicle none')
+            number_of_vehicles = number_of_vehicles + 1
 
     if (scenario == 0):
             print('spawned %d cautious vehicles.' % (number_of_cauitous_vehicles))
