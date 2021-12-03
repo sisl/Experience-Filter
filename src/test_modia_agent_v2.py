@@ -40,15 +40,16 @@ exec(open("./nodes/replace_actors_type.py").read())
 blueprint_library = world.get_blueprint_library()
 my_actors_list = []
 
+env_objs = world.get_environment_objects(carla.CityObjectLabel.Roads)
+map = world.get_map()
+topology = map.get_topology()
+
+[waypoint_start, waypoint_end] = generate_scenario(topology, map)
+
+vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.transform.location.x, y=waypoint_start.transform.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.transform.rotation.yaw, roll=0.000000)) 
 
 # Spawn Ego vehicle
 # vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
-
-# second initial location
-vehicle_init_tf = carla.Transform(carla.Location(x=118.207603, y=196.073532, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))  
-
-# third initial location
-#vehicle_init_tf = carla.Transform(carla.Location(x=122.593338, y=-2.000316, z=1.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))  
 
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
@@ -65,14 +66,10 @@ time.sleep(1)
 # Start an agent
 init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
 agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=True)
+
 # destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 
-# second destination location
-destination = carla.Transform(carla.Location(x=87.423035, y=225.054352, z=0.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000))
-
-# third destination location
-# destination = carla.Transform(carla.Location(x=59.589275, y=-2.00, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
-
+destination = waypoint_end.transform
 agent.set_destination(destination.location)
 
 scenario = 1

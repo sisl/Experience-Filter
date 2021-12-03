@@ -375,3 +375,63 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
     client.apply_batch([carla.command.DestroyActor(x) for x in all_id])
 
     time.sleep(0.5)
+
+def generate_scenario(topology, map):
+    map_size = len(topology)
+    connection = False
+    while (connection == False):
+        # pick a random road on the topology
+        top_item_no = random.randint(0, map_size-1)
+
+        # find the start and end point of the road
+        waypoint1 = topology[top_item_no][0]
+        waypoint2 = topology[top_item_no][1]
+        point1 = np.array((waypoint1.transform.location.x, waypoint1.transform.location.y))
+        point2 = np.array((waypoint2.transform.location.x, waypoint2.transform.location.y))
+        road1_yaw = waypoint1.transform.rotation.yaw
+
+        # loop through the other roads in the topology to find  a connection
+        for i in range(map_size):
+            if i != top_item_no:
+                waypoint3 = topology[i][0]
+                waypoint4 = topology[i][1]
+                road2_yaw = waypoint3.transform.rotation.yaw
+                point3 = np.array((waypoint3.transform.location.x, waypoint3.transform.location.y))
+                yaw_diff = abs(road1_yaw - road2_yaw)
+
+                # if the end point of the road is close to the start point of the other road and if they have diferent yaws, then it's a connection
+                if (np.linalg.norm(point2 - point3) < 0.1 and (yaw_diff > 1 and  yaw_diff < 359)):
+                    connection = True
+                    waypoint_end = map.get_waypoint(waypoint4.transform.location, True, lane_type=carla.LaneType.Driving)
+
+                    # find the point that connects to the connection
+                    for j in range(map_size):
+                        if(j!=i and j!=top_item_no):
+                            waypoint_test1 = topology[j][0]
+                            waypoint_test2 = topology[j][1]
+                            point_test1 = np.array((waypoint_test1.transform.location.x, waypoint_test1.transform.location.y))
+                            point_test2 = np.array((waypoint_test2.transform.location.x, waypoint_test2.transform.location.y))
+                            if (np.linalg.norm(point1 - point_test2) <0.1):
+                                waypoint_start = map.get_waypoint(waypoint_test1.transform.location, True, lane_type=carla.LaneType.Driving)
+                                '''
+                                print('waypoint 1')
+                                print(waypoint1)
+                                print('waypoint 2')
+                                print(waypoint2)
+                                print('waypoint 3')
+                                print(waypoint3)
+                                print('waypoint 4')
+                                print(waypoint4)
+                                print('waypoint test 1')
+                                print(waypoint_test1)
+                                print('waypoint test 2')
+                                print(waypoint_test2)
+                            
+                                print('waypoint_start_tranform')
+                                print(waypoint_start)
+                                print('waypoint_end_tranform')
+                                print(waypoint_end) '''
+                                #return waypoint_start_transform, waypoint_end_transform
+                                return waypoint_start, waypoint_end
+
+    
