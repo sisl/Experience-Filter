@@ -44,7 +44,9 @@ env_objs = world.get_environment_objects(carla.CityObjectLabel.Roads)
 map = world.get_map()
 topology = map.get_topology()
 
-[waypoint_start, waypoint_end] = generate_scenario(topology, map)
+#[waypoint_start, waypoint_end] = generate_scenario(topology, map)
+[waypoint_start, waypoint_end] = generate_scenario_tree(topology, map)
+#generate_scenario_tree(topology, map)
 
 vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.transform.location.x, y=waypoint_start.transform.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.transform.rotation.yaw, roll=0.000000)) 
 
@@ -55,7 +57,7 @@ my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 my_actors_list.append(my_vehicle)
-print(f"My vehic ID: {my_vehicle.id}")
+print(f"My vehicle ID: {my_vehicle.id}")
 # You might want to orient the spectator here, w.r.t. `my_vehicle.id`.
 
 

@@ -7,6 +7,7 @@ import os
 import time
 
 from numpy.lib.function_base import append
+from sklearn.neighbors import KDTree
 from carla import VehicleLightState as vls
 from numpy import random
 
@@ -376,7 +377,7 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
 
     time.sleep(0.5)
 
-def generate_scenario(topology, map):
+def generate_scenario(topology, env_map):
     map_size = len(topology)
     connection = False
     while (connection == False):
@@ -402,7 +403,7 @@ def generate_scenario(topology, map):
                 # if the end point of the road is close to the start point of the other road and if they have diferent yaws, then it's a connection
                 if (np.linalg.norm(point2 - point3) < 0.1 and (yaw_diff > 1 and  yaw_diff < 359)):
                     connection = True
-                    waypoint_end = map.get_waypoint(waypoint4.transform.location, True, lane_type=carla.LaneType.Driving)
+                    waypoint_end = env_map.get_waypoint(waypoint4.transform.location, True, lane_type=carla.LaneType.Driving)
 
                     # find the point that connects to the connection
                     for j in range(map_size):
@@ -412,7 +413,7 @@ def generate_scenario(topology, map):
                             point_test1 = np.array((waypoint_test1.transform.location.x, waypoint_test1.transform.location.y))
                             point_test2 = np.array((waypoint_test2.transform.location.x, waypoint_test2.transform.location.y))
                             if (np.linalg.norm(point1 - point_test2) <0.1):
-                                waypoint_start = map.get_waypoint(waypoint_test1.transform.location, True, lane_type=carla.LaneType.Driving)
+                                waypoint_start = env_map.get_waypoint(waypoint_test1.transform.location, True, lane_type=carla.LaneType.Driving)
                                 '''
                                 print('waypoint 1')
                                 print(waypoint1)
@@ -434,4 +435,66 @@ def generate_scenario(topology, map):
                                 #return waypoint_start_transform, waypoint_end_transform
                                 return waypoint_start, waypoint_end
 
-    
+def generate_scenario_tree(topology, env_map):
+    map_size = len(topology)
+    connection = False
+    start_points = np.zeros((map_size, 2))
+    end_points = np.zeros((map_size, 2))
+
+    # build the trees for the start and end points on the map
+    for i in range(map_size):
+        waypoint_starts = topology[i][0]
+        waypoint_ends = topology[i][1]
+        start_points[i, :] = np.array((waypoint_starts.transform.location.x, waypoint_starts.transform.location.y))
+        end_points[i, :] = np.array((waypoint_ends.transform.location.x, waypoint_ends.transform.location.y))
+
+    start_tree = KDTree(start_points, leaf_size=2)
+    end_tree = KDTree(end_points, leaf_size=2)
+
+    # pick a random road
+    while (connection == False):
+        top_item_no = random.randint(0, map_size-1)
+        waypoint1 = topology[top_item_no][0]
+        waypoint2 = topology[top_item_no][1]
+        road1_yaw = waypoint1.transform.rotation.yaw
+        point1 = np.array((waypoint1.transform.location.x, waypoint1.transform.location.y))
+        point2 = np.array((waypoint2.transform.location.x, waypoint2.transform.location.y))
+        point1 = point1.reshape(1, -1)
+        point2 = point2.reshape(1, -1)
+
+        # find the closest starting position to the end position of the picked road
+        dist_end, ind_end = start_tree.query(point2, k=1) 
+        end_ind = ind_end[0][0]
+        waypoint_end_connnection = topology[end_ind][0]
+        road2_yaw = waypoint_end_connnection.transform.rotation.yaw
+        yaw_diff = abs(road1_yaw - road2_yaw)
+        
+        # if the closest point is closer than a threshold and if the roads have different yaw angles, consider it as a connection
+        if (dist_end < 0.1 and (yaw_diff > 1 and  yaw_diff < 359)):
+            connection = True
+            
+            # find the closest end position to the start position of the picked road
+            dist_start, ind_start = end_tree.query(point1, k=1)
+            if (dist_start < 0.1):
+
+                start_ind = ind_start[0][0]               
+                
+                waypoint_start_connnection = topology[start_ind][1]
+
+                # set the start and end positions of the scenario
+                waypoint_start = topology[start_ind][0]
+                waypoint_end = topology[end_ind][1]
+                '''
+                print('waypoint 1')
+                print(waypoint1)
+                print('waypoint 2')
+                print(waypoint2)
+                print('waypoint_end_connnection')
+                print(waypoint_end_connnection)
+                print('waypoint_start_connnection')
+                print(waypoint_start_connnection)
+                print('waypoint_start_tranform')
+                print(waypoint_start)
+                print('waypoint_end_tranform')
+                print(waypoint_end) '''
+                return waypoint_start, waypoint_end
