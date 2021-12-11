@@ -51,7 +51,6 @@ class MODIAAgent(object):
         self._consideration_diameter = 50.0   # meters
 
         # Params for Stop-Uncontrolled DP
-        #! Future work: Need to consider the case where rivals are coming from the `after` position for the ego (opposite lane).
         self._ignore_stop_signs = False
         self._Stop_Uncontrolled_DCs = dict()
         self._stop_uncontrolled_pomdp = StopUncontrolledDP.Pomdp
@@ -99,7 +98,7 @@ class MODIAAgent(object):
         self._target_speed = target_speed
         self._sampling_resolution = 2.0
         self._base_tlight_threshold = 5.0  # meters
-        self._base_vehicle_threshold = 2.0  # meters
+        self._base_vehicle_threshold = 3.3  # meters
         self._max_brake = 0.9
 
         # Change parameters according to the dictionary
@@ -120,7 +119,7 @@ class MODIAAgent(object):
             self._max_steering = opt_dict['max_brake']
 
         # Initialize the planners
-        self._local_planner = LocalPlanner(self._vehicle, opt_dict = {'dt': 0.001, 'target_speed': 100})
+        self._local_planner = LocalPlanner(self._vehicle, opt_dict = {'dt': 0.001, 'target_speed': 40})
         self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
 
         if verbose_belief:
@@ -236,16 +235,16 @@ class MODIAAgent(object):
         lights_list = actor_list.filter("*traffic_light*")
         stop_signs_list = actor_list.filter("*{}*".format(self._stop_sign_prop))
 
-        vehicle_speed = get_speed(self._vehicle) / 3.6
+        self.vehicle_speed = get_speed(self._vehicle) / 3.6
 
         # Check for possible vehicle obstacles
-        max_vehicle_distance = self._base_vehicle_threshold + 0.5*vehicle_speed
+        max_vehicle_distance = self._base_vehicle_threshold + 0.5*self.vehicle_speed
         affected_by_vehicle, _ = self._vehicle_obstacle_detected(vehicle_list, max_vehicle_distance)
         if affected_by_vehicle:
             list_of_actions.append(1)  # send "stop"
 
         # Check if the vehicle is affected by a red traffic light
-        max_tlight_distance = self._base_tlight_threshold + vehicle_speed
+        max_tlight_distance = self._base_tlight_threshold + self.vehicle_speed
         affected_by_tlight, _ = self._affected_by_traffic_light(lights_list, max_tlight_distance)
         if affected_by_tlight:
             list_of_actions.append(1)  # send "stop"
@@ -254,7 +253,7 @@ class MODIAAgent(object):
         # Currently, the ego vehicle will only stop is there are DCs, a.k.a. other vehicles nearby the stop sign.
         # Hence, if there are not DCs, the ego vehicle NOT stop at the stop sign.
         # This is because `list_of_actions` is ignored if `self._Stop_Uncontrolled_DCs` is empty.
-        max_stop_sign_distance = self._base_stop_sign_threshold + vehicle_speed
+        max_stop_sign_distance = self._base_stop_sign_threshold + self.vehicle_speed
         affected_by_stop_sign, _ = self._affected_by_stop_sign(stop_signs_list, max_stop_sign_distance)
         if affected_by_stop_sign:
             # print("AT STOP SIGN!!")
@@ -269,38 +268,36 @@ class MODIAAgent(object):
 
         # Get suggested control inputs from local planner
         control = self._local_planner.run_step()
+
+        if self.verbose_belief:
+            try:
+                MODIA.py_tabulate_belief(self._State_Space, self._Stop_Uncontrolled_DCs)
+            except:
+                # import ipdb; ipdb.set_trace()
+                pass
         
-        if not self._Stop_Uncontrolled_DCs:
-            # If there are no DCs, proceed as usual
+        # Pass control input
+        a_idx, act = self._get_safest_action(list_of_actions)
+        if self.verbose_belief: print(f"Safest action: {self._actions[a_idx]}")
+
+        # Record histories
+        self._record_histories(self._last_action, obs_jl_for_DCs)
+        self._last_action = a_idx
+
+        if act == "stop":
+            return self.add_emergency_stop(control)
+
+        elif act == "go":
             return control
 
-        else:
-            # Verbose DC beliefs to console
-            if self.verbose_belief:
-                MODIA.py_tabulate_belief(self._State_Space, self._Stop_Uncontrolled_DCs)
-
-            # Pass control input
-            a_idx, act = self._get_safest_action(list_of_actions)
-            print(f"Safest action: {self._actions[a_idx]}")
-
-            # Record histories
-            self._record_histories(self._last_action, obs_jl_for_DCs)
-            self._last_action = a_idx
-
-            if act == "stop":
-                return self.add_emergency_stop(control)
-
-            elif act == "go":
-                return control
-
-            else:   # edge
-                # TODO.
-                return control
+        else:   # edge
+            # TODO.
+            return control
 
     def done(self):
         """Check whether the agent has reached its destination."""
-        print(f"Distance to destination: {tf_distance(self._destination, self._vehicle.get_location())}")
-        print(f"No of waypoint in local planner: {len(self._local_planner._waypoints_queue)}")
+        # print(f"Distance to destination: {tf_distance(self._destination, self._vehicle.get_location())}")
+        # print(f"No of waypoint in local planner: {len(self._local_planner._waypoints_queue)}")
         return self._local_planner.done() \
             or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold \
             or self._deadlocked()
@@ -331,7 +328,7 @@ class MODIAAgent(object):
 
     def _deadlocked(self):
         """Check if the scenario is deadlocked."""
-        print(f"Vehicle speed in m/s: {get_speed(self._vehicle)}")
+        # print(f"Vehicle speed in m/s: {get_speed(self._vehicle)}")
 
         if get_speed(self._vehicle) < 0.1:
             if not self._deadlock_countdown:
@@ -449,7 +446,7 @@ class MODIAAgent(object):
             obs.append(self._positions[rival_pos])
 
             # Get rival blocking
-            rival_blk, _ = self._is_vehicle_blocking(rival, 1.1*self._base_vehicle_threshold)
+            rival_blk, _ = self._is_vehicle_blocking(rival, self._base_vehicle_threshold + self.vehicle_speed)
             obs.append(self._rival_blocking[rival_blk])
 
             # Get rival aggressiveness
@@ -489,6 +486,12 @@ class MODIAAgent(object):
 
     def _refresh_DCs(self, vehicle_list):
         """Destroy DCs when they are no longer of interest, and check if new DCs need to be created."""
+
+        # If there is no stop sign, then destroy the DCs
+        if not self._next_stop_sign:
+            self._Stop_Uncontrolled_DCs = dict()
+            return
+
         ego_location = self._vehicle.get_location()
         rivals_to_consider = [item.id for item in vehicle_list if carla.Location.distance(ego_location, item.get_location()) <= self._consideration_diameter]
         rivals_to_consider.remove(self._vehicle.id)    # don't consider the ego vehicle as a rival
@@ -510,9 +513,13 @@ class MODIAAgent(object):
     def _update_DC_beliefs(self, a_idx, obs_jl_for_DCs):
         """Update DC beliefs and also return the recommended action from each DC."""
         DC_actions = []
-        for rival_id, belief in self._Stop_Uncontrolled_DCs.items():
-            self._Stop_Uncontrolled_DCs[rival_id] = MODIA.update_belief(self._belief_updater, belief, a_idx, obs_jl_for_DCs[rival_id])
-            DC_actions.append(self._get_action_from_belief(self._stop_uncontrolled_policy, belief))
+        try:
+            for rival_id, belief in self._Stop_Uncontrolled_DCs.items():
+                self._Stop_Uncontrolled_DCs[rival_id] = MODIA.update_belief(self._belief_updater, belief, a_idx, obs_jl_for_DCs[rival_id])
+                DC_actions.append(self._get_action_from_belief(self._stop_uncontrolled_policy, belief))
+        except:
+            import ipdb; ipdb.set_trace()
+
         return DC_actions
 
     def _get_safest_action(self, list_of_actions):
@@ -522,7 +529,7 @@ class MODIAAgent(object):
             return a, self._actions[a]    # e.g. (1, :stop)
         else:   # there are no DCs
             a = 3   # :go
-            return 
+            return a, self._actions[a]
 
     def _affected_by_traffic_light(self, lights_list=None, max_distance=None):
         """
@@ -600,7 +607,7 @@ class MODIAAgent(object):
             else:
                 return (True, self._last_stop_sign_road_id)
 
-        nearest_stop_sign_dist = self._consideration_diameter
+        nearest_stop_sign_dist = self._consideration_diameter * 100
 
         for stop_sign in stop_signs_list:
             object_location = stop_sign.get_location()
@@ -623,7 +630,7 @@ class MODIAAgent(object):
                 nearest_stop_sign_dist = dist
                 self._next_stop_sign = stop_sign
 
-            if is_within_distance(object_waypoint.transform, self._vehicle.get_transform(), max_distance, [0, 90]):
+            if is_within_distance(object_waypoint.transform, self._vehicle.get_transform(), max_distance, [-90, 90]):
                 self._last_stop_sign_road_id = object_waypoint.road_id
                 self._last_stop_sign = stop_sign
                 self._last_stop_sign_detect_time = time.time()
@@ -631,11 +638,9 @@ class MODIAAgent(object):
 
         return (False, None)
 
-
     def _vehicle_obstacle_detected(self, vehicle_list=None, max_distance=None):
         """
         Method to check if there is a vehicle in front of the agent blocking its path.
-
             :param vehicle_list (list of carla.Vehicle): list contatining vehicle objects.
                 If None, all vehicle in the scene are used
             :param max_distance: max freespace to check for obstacles.
@@ -664,13 +669,13 @@ class MODIAAgent(object):
 
         for target_vehicle in vehicle_list:
             target_transform = target_vehicle.get_transform()
-            target_wpt = self._map.get_waypoint(target_transform.location)
-            if target_wpt.road_id != ego_wpt.road_id or target_wpt.lane_id != ego_wpt.lane_id:
-                next_wpt = self._local_planner.get_incoming_waypoint_and_direction(steps=3)[0]
-                if not next_wpt:
-                    continue
-                if target_wpt.road_id != next_wpt.road_id or target_wpt.lane_id != next_wpt.lane_id:
-                    continue
+            # target_wpt = self._map.get_waypoint(target_transform.location)
+            # if target_wpt.road_id != ego_wpt.road_id or target_wpt.lane_id != ego_wpt.lane_id:
+            #     next_wpt = self._local_planner.get_incoming_waypoint_and_direction(steps=3)[0]
+            #     if not next_wpt:
+            #         continue
+            #     if target_wpt.road_id != next_wpt.road_id or target_wpt.lane_id != next_wpt.lane_id:
+            #         continue
 
             target_forward_vector = target_transform.get_forward_vector()
             target_extent = target_vehicle.bounding_box.extent.x

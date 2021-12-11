@@ -72,7 +72,7 @@ def is_within_distance(target_transform, reference_transform, max_distance, angl
     :param target_transform: location of the target object
     :param reference_transform: location of the reference object
     :param max_distance: maximum allowed distance
-    :param angle_interval: only locations between [min, max] angles will be considered. This isn't checked by default.
+    :param angle_interval within [0, 180]: only locations between [min, max] angles will be considered. This isn't checked by default.
     :return: boolean
     """
     target_vector = np.array([
