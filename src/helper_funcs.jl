@@ -23,6 +23,7 @@ function py_tabulate_belief(State_Space::AbstractDict, beliefs::AbstractDict; pr
     for (rv_id, bel) in beliefs
 
         likely_states_idx = findall(x->x>=prob_threshold, bel.b)
+        if isempty(likely_states_idx) continue end
         likely_states_probs = bel.b[likely_states_idx]
         likely_states = ordered_dict_keys(State_Space)[likely_states_idx]
 
@@ -41,5 +42,9 @@ function py_tabulate_belief(State_Space::AbstractDict, beliefs::AbstractDict; pr
         end
     end
 
-    return pretty_table(data_all; header = vcat("Rival ID", collect(string.(fieldnames_table)), "Prob"), hlines=0:L_table+1)
+    if isnothing(L_table)
+        return
+    else
+        return pretty_table(data_all; header = vcat("Rival ID", collect(string.(fieldnames_table)), "Prob"), hlines=0:L_table+1)
+    end
 end

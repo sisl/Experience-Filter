@@ -1,4 +1,5 @@
 import carla
+import os
 import time
 from helper_funcs import *
 
@@ -37,6 +38,8 @@ class MODIAAgent(object):
 
         # Params for MODIA
         self.verbose_belief = verbose_belief
+        self.verbose_last_time = time.time()
+        self.verbose_belief_hz = 3.0    # 1/seconds
         self._actions = {1: "stop", 2: "edge", 3: "go"}
         self._positions = {"before": 1.0, "at": 2.0, "inside": 3.0, "after": 4.0}
         self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_vel")
@@ -234,7 +237,6 @@ class MODIAAgent(object):
         vehicle_list = actor_list.filter("*vehicle*")
         lights_list = actor_list.filter("*traffic_light*")
         stop_signs_list = actor_list.filter("*{}*".format(self._stop_sign_prop))
-
         self.vehicle_speed = get_speed(self._vehicle) / 3.6
 
         # Check for possible vehicle obstacles
@@ -250,35 +252,29 @@ class MODIAAgent(object):
             list_of_actions.append(1)  # send "stop"
 
         # Check if the vehicle is affected by a stop sign.
-        # Currently, the ego vehicle will only stop is there are DCs, a.k.a. other vehicles nearby the stop sign.
-        # Hence, if there are not DCs, the ego vehicle NOT stop at the stop sign.
+        # Currently, the ego vehicle will only stop is there are DCs, a.k.a. other vehicles are nearby the stop sign.
+        # Hence, if there are no DCs, the ego vehicle will NOT stop at the stop sign.
         # This is because `list_of_actions` is ignored if `self._Stop_Uncontrolled_DCs` is empty.
         max_stop_sign_distance = self._base_stop_sign_threshold + self.vehicle_speed
         affected_by_stop_sign, _ = self._affected_by_stop_sign(stop_signs_list, max_stop_sign_distance)
         if affected_by_stop_sign:
-            # print("AT STOP SIGN!!")
             list_of_actions.append(1)  # send "stop"
 
         # Update POMDP belief in each DC
         self._refresh_DCs(vehicle_list)
         obs = self._get_observations()
-        obs_jl_for_DCs = self._get_obs_corresponding_idx(obs)   # list of obs_jl for each DC
+        obs_jl_for_DCs = self._get_Julia_obs(obs)   # list of obs_jl for each DC
         DC_actions = self._update_DC_beliefs(self._last_action, obs_jl_for_DCs)
         list_of_actions.extend(DC_actions)
 
         # Get suggested control inputs from local planner
         control = self._local_planner.run_step()
 
-        if self.verbose_belief:
-            try:
-                MODIA.py_tabulate_belief(self._State_Space, self._Stop_Uncontrolled_DCs)
-            except:
-                # import ipdb; ipdb.set_trace()
-                pass
+        if self._time_to_verbose(): MODIA.py_tabulate_belief(self._State_Space, self._Stop_Uncontrolled_DCs)
         
         # Pass control input
         a_idx, act = self._get_safest_action(list_of_actions)
-        if self.verbose_belief: print(f"Safest action: {self._actions[a_idx]}")
+        print(f"Safest action: {self._actions[a_idx]}")
 
         # Record histories
         self._record_histories(self._last_action, obs_jl_for_DCs)
@@ -325,6 +321,23 @@ class MODIAAgent(object):
     def ignore_vehicles(self, active=True):
         """(De)activates the checks for other vehicles."""
         self._ignore_vehicles = active
+
+    def _time_to_verbose(self):
+        """Check whether it is time to verbose to the terminal."""
+        if not self.verbose_belief: return False
+        if time.time() - self.verbose_last_time > 1.0/self.verbose_belief_hz:
+            self.verbose_last_time = time.time()
+            os.system('clear')   # clears terminal stdout
+            return True
+        else:
+            return False
+
+    def _printv(self, statement):
+        """Only print a statement when it is time to verbose to the terminal."""
+        if not self._time_to_verbose():
+            return
+        else:
+            print(statement)
 
     def _deadlocked(self):
         """Check if the scenario is deadlocked."""
@@ -464,7 +477,7 @@ class MODIAAgent(object):
 
         return observations
 
-    def _get_obs_corresponding_idx(self, obs):
+    def _get_Julia_obs(self, obs):
         """Get the Julia correspondence of observations received from the Carla server."""
         names = self._observing
         result = dict()

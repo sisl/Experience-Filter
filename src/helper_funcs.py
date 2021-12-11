@@ -1,7 +1,5 @@
 import carla
-import sys
 import numpy as np
-import random
 
 def printl(L, log_name=""):
     """Print elements of an iterable object. Useful for objects like L = <carla.libcarla.ActorList>."""
@@ -31,7 +29,6 @@ def move_actor_id(actor, world, dx=0, dy=0, dz=0, droll=0, dpitch=0, dyaw=0):
     """Same as above, but input is Int actor id, instead of the actor object itself."""
     actor = world.get_actor(actor)
     return move_actor(actor, dx=dx, dy=dy, dz=dz, droll=droll, dpitch=dpitch, dyaw=dyaw)
-
 
 def distance_among_actors(actor1, actor2):
     """Get distance between two actor objects."""
@@ -80,9 +77,9 @@ def angle_is_approx(query_angle, target_angle, target_delta=45):
 
 def is_ahead_of_reference(query_actor, reference_actor):
     """
-    Returns True if `query_actor` is ahead of `reference_actor`, w.r.t. to the direction `query_actor` is pointing.
+    Returns True if `query_actor` is ahead of `reference_actor`, w.r.t. the direction `query_actor` is pointing.
     
-    Map Compass:
+    Yaw Compass:
             +Y (90)
               |
     +X (0)————o———— -X (-180)
