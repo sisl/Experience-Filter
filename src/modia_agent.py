@@ -38,8 +38,8 @@ class MODIAAgent(object):
 
         # Params for MODIA
         self.verbose_belief = verbose_belief
-        self.verbose_last_time = time.time()
-        self.verbose_belief_hz = 3.0    # 1/seconds
+        self._verbose_last_time = time.time()
+        self._verbose_belief_hz = 3.0    # 1/seconds
         self._actions = {1: "stop", 2: "edge", 3: "go"}
         self._positions = {"before": 1.0, "at": 2.0, "inside": 3.0, "after": 4.0}
         self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_vel")
@@ -94,6 +94,12 @@ class MODIAAgent(object):
         self._aggsv_vals = {"cautious": 1.0, "normal": 2.0, "aggressive": 3.0}
         self._cautious_threshold = 10.0   # m/s
         self._aggressive_threshold = 40.0   # m/s
+
+        self._last_edge_action = 3
+        self._edge_stop_last_time = time.time()
+        self._edge_go_last_time = time.time()
+        self._edge_stop_duration = 0.5   # seconds
+        self._edge_go_duration = 0.5   # seconds
 
         # Base parameters
         self._ignore_traffic_lights = True
@@ -274,7 +280,7 @@ class MODIAAgent(object):
         
         # Pass control input
         a_idx, act = self._get_safest_action(list_of_actions)
-        print(f"Safest action: {self._actions[a_idx]}")
+        # print(f"Safest action: {self._actions[a_idx]}")
 
         # Record histories
         self._record_histories(self._last_action, obs_jl_for_DCs)
@@ -287,8 +293,10 @@ class MODIAAgent(object):
             return control
 
         else:   # edge
-            # TODO.
-            return control
+            edge_act_name, edge_act_control = self._edge(control)
+            # print(f"Edge action: {edge_act_name}")
+            return edge_act_control
+
 
     def done(self):
         """Check whether the agent has reached its destination."""
@@ -322,11 +330,25 @@ class MODIAAgent(object):
         """(De)activates the checks for other vehicles."""
         self._ignore_vehicles = active
 
+    def _edge(self, control):
+        """Move the ego vehicle for a few seconds, then wait for a few seconds. Repeat this cycle."""
+        # import ipdb; ipdb.set_trace()
+        if self._actions[self._last_edge_action] == "go":   # want to stop
+            if time.time() - self._edge_stop_last_time > self._edge_stop_duration:   # no longer want to stop
+                self._last_edge_action = 1
+                self._edge_go_last_time = time.time()
+            return "stop", self.add_emergency_stop(control)
+        else:   # self._last_edge_action == "stop"   # want to go
+            if time.time() - self._edge_go_last_time > self._edge_go_duration:   # no longer want to go
+                self._last_edge_action = 3
+                self._edge_stop_last_time = time.time()
+            return "go", control
+
     def _time_to_verbose(self):
         """Check whether it is time to verbose to the terminal."""
         if not self.verbose_belief: return False
-        if time.time() - self.verbose_last_time > 1.0/self.verbose_belief_hz:
-            self.verbose_last_time = time.time()
+        if time.time() - self._verbose_last_time > 1.0/self._verbose_belief_hz:
+            self._verbose_last_time = time.time()
             os.system('clear')   # clears terminal stdout
             return True
         else:
