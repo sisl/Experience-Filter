@@ -8,7 +8,7 @@ sys.path.append('./PythonAPI/carla/')
 
 from PythonAPI.carla.agents.navigation.local_planner import LocalPlanner
 from PythonAPI.carla.agents.navigation.global_route_planner import GlobalRoutePlanner
-from PythonAPI.carla.agents.tools.misc import get_speed, is_within_distance, get_trafficlight_trigger_location
+from PythonAPI.carla.agents.tools.misc import get_speed, is_within_distance, get_trafficlight_trigger_location, compute_distance
 
 # You must have connected to julia.api in the main script for the imports below to work!
 from julia import MODIA
@@ -101,7 +101,7 @@ class MODIAAgent(object):
         self._target_speed = target_speed
         self._sampling_resolution = 2.0
         self._base_tlight_threshold = 5.0  # meters
-        self._base_vehicle_threshold = 3.3  # meters
+        self._base_vehicle_threshold = 10.0  # meters
         self._max_brake = 0.9
 
         # Change parameters according to the dictionary
@@ -651,6 +651,7 @@ class MODIAAgent(object):
 
         return (False, None)
 
+
     def _vehicle_obstacle_detected(self, vehicle_list=None, max_distance=None):
         """
         Method to check if there is a vehicle in front of the agent blocking its path.
@@ -669,38 +670,52 @@ class MODIAAgent(object):
             max_distance = self._base_vehicle_threshold
 
         ego_transform = self._vehicle.get_transform()
-        ego_wpt = self._map.get_waypoint(self._vehicle.get_location())
 
         # Get the transform of the front of the ego
         ego_forward_vector = ego_transform.get_forward_vector()
-        ego_extent = self._vehicle.bounding_box.extent.x
-        ego_front_transform = ego_transform
-        ego_front_transform.location += carla.Location(
-            x=ego_extent * ego_forward_vector.x,
-            y=ego_extent * ego_forward_vector.y,
-        )
+
+        ego_box_angle = np.deg2rad(ego_transform.rotation.yaw)
+        ego_box_O = ego_transform.location
+        ego_box_E = carla.Location(x=max_distance * np.cos(ego_box_angle), y=max_distance * np.sin(ego_box_angle))
+        ego_box_F = carla.Location(x=1.0 * np.cos(np.pi/2 + ego_box_angle), y=1.0 * np.sin(np.pi/2 + ego_box_angle))
+        ego_box_A = ego_box_O + ego_box_E - ego_box_F
+        ego_box_B = ego_box_O + ego_box_E + ego_box_F
+        ego_box_C = ego_box_O - ego_box_F
+        ego_box_D = ego_box_O + ego_box_F
+
+        # print(f"O: {ego_box_O}")
+        # print(f"E: {ego_box_E}")
+        # print(f"F: {ego_box_F}")
+        # print(f"A: {ego_box_A}")
+        # print(f"B: {ego_box_B}")
+        # print(f"C: {ego_box_C}")
+        # print(f"D: {ego_box_D}")
 
         for target_vehicle in vehicle_list:
             target_transform = target_vehicle.get_transform()
-            # target_wpt = self._map.get_waypoint(target_transform.location)
-            # if target_wpt.road_id != ego_wpt.road_id or target_wpt.lane_id != ego_wpt.lane_id:
-            #     next_wpt = self._local_planner.get_incoming_waypoint_and_direction(steps=3)[0]
-            #     if not next_wpt:
-            #         continue
-            #     if target_wpt.road_id != next_wpt.road_id or target_wpt.lane_id != next_wpt.lane_id:
-            #         continue
+            # print(f"vehicle id: {target_vehicle.id}")
+            # print(f"Vehicle loc: {target_transform.location}")
 
-            target_forward_vector = target_transform.get_forward_vector()
-            target_extent = target_vehicle.bounding_box.extent.x
-            target_rear_transform = target_transform
-            target_rear_transform.location -= carla.Location(
-                x=target_extent * target_forward_vector.x,
-                y=target_extent * target_forward_vector.y,
-            )
-
-            if is_within_distance(target_rear_transform, ego_front_transform, max_distance, [0, 90]):
+            # import ipdb; ipdb.set_trace()
+            if target_vehicle.id != self._vehicle.id and self._is_inside_box(target_transform, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
+                # print("got True")
                 return (True, target_vehicle)
         return (False, None)
+
+    def _is_inside_box(self, target_transform, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
+        bl_x = min(ego_box_A.x, ego_box_B.x, ego_box_C.x, ego_box_D.x)
+        bl_y = min(ego_box_A.y, ego_box_B.y, ego_box_C.y, ego_box_D.y)
+
+        tr_x = max(ego_box_A.x, ego_box_B.x, ego_box_C.x, ego_box_D.x)
+        tr_y = max(ego_box_A.y, ego_box_B.y, ego_box_C.y, ego_box_D.y)
+
+        # Checking the bottom left and top right corners of the rectangle
+        target_x, target_y = target_transform.location.x, target_transform.location.y
+        if (target_x > bl_x and target_x < tr_x and target_y > bl_y and target_y < tr_y):
+            return True
+        else:
+            return False
+
 
     def _is_vehicle_blocking(self, target_vehicle, max_distance):
         ego_transform = self._vehicle.get_transform()

@@ -82,7 +82,7 @@ def is_ahead_of_reference(query_actor, reference_actor):
     Yaw Compass:
             +Y (90)
               |
-    +X (0)————o———— -X (-180)
+    +X (0)————o———— -X (+-180)
               |
            -Y (-90)
     """
@@ -93,10 +93,9 @@ def is_ahead_of_reference(query_actor, reference_actor):
 
     elif angle_is_approx(query_yaw, 90):
         return query_actor.get_location().y > reference_actor.get_location().y
-
-    elif angle_is_approx(query_yaw, -180):
-        return query_actor.get_location().x < reference_actor.get_location().x
-
+        
     elif angle_is_approx(query_yaw, -90):
         return query_actor.get_location().y < reference_actor.get_location().y
 
+    else:   # angle_is_approx(query_yaw, 180) or angle_is_approx(query_yaw, -180):
+        return query_actor.get_location().x < reference_actor.get_location().x
