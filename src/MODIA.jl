@@ -21,11 +21,21 @@ export
 	DiscreteUpdater,
 	update_belief
 
+# include("plot_funcs.jl")
+# export
+# 	get_policy_map
+
 include("helper_funcs.jl")
 export
 	printt,
 	py_construct_obs,
 	py_tabulate_belief
 
+include("history_learner.jl")
+export
+	learn_from_data,
+	concat_observations,
+	most_likely_state_from_obs,
+	load_saved_data
 
 end  # module

@@ -5,6 +5,8 @@ version = "0.1.0"
 
 [deps]
 BeliefUpdaters = "8bb6e9a1-7d73-552c-a44a-e5dc5634aac4"
+JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
+OpenLibm_jll = "05823500-19ac-5b8b-9628-191a04bc5112"
 POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
 POMDPPolicies = "182e52fb-cfd0-5e46-8c26-fd0667c990f4"
 POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"

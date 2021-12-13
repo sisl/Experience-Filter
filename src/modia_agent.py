@@ -49,8 +49,8 @@ class MODIAAgent(object):
         self._Obs_Space = MODIA.Obs_Space
         self._get_action_from_belief = MODIA.get_action_from_belief
         self._belief_updater = MODIA.DiscreteUpdater(MODIA.StopUncontrolledDP.Pomdp)
-        self._observation_history = []
-        self._action_history = []
+        self.observation_history = []
+        self.action_history = []
         self._consideration_diameter = 50.0   # meters
 
         # Params for Stop-Uncontrolled DP
@@ -306,13 +306,13 @@ class MODIAAgent(object):
             or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold \
             or self._deadlocked()
 
-    def get_observation_history(self):
+    def getobservation_history(self):
         "Get observation history of the most recent episode."
-        return self._observation_history
+        return self.observation_history
 
-    def get_action_history(self):
+    def getaction_history(self):
         "Get action history of the most recent episode."
-        return self._action_history
+        return self.action_history
 
     def get_belief(self):
         """Get latest belief of MODIA."""
@@ -332,7 +332,6 @@ class MODIAAgent(object):
 
     def _edge(self, control):
         """Move the ego vehicle for a few seconds, then wait for a few seconds. Repeat this cycle."""
-        # import ipdb; ipdb.set_trace()
         if self._actions[self._last_edge_action] == "go":   # want to stop
             if time.time() - self._edge_stop_last_time > self._edge_stop_duration:   # no longer want to stop
                 self._last_edge_action = 1
@@ -511,13 +510,13 @@ class MODIAAgent(object):
 
     def _record_histories(self, a_idx, o_idx):
         """Record histories during the episode."""
-        self._action_history.append(a_idx)
-        self._observation_history.append(o_idx)
+        self.action_history.append(a_idx)
+        self.observation_history.append(o_idx)
 
     def _reset_histories(self):
-        """Reset the history records, typically executed when a new destination is set."""
-        self._observation_history = []
-        self._action_history = []
+        """Reset the history records. Typically executed when a new destination is set."""
+        self.observation_history = []
+        self.action_history = []
 
     def _refresh_DCs(self, vehicle_list):
         """Destroy DCs when they are no longer of interest, and check if new DCs need to be created."""
@@ -724,6 +723,7 @@ class MODIAAgent(object):
                 return (True, target_vehicle)
         return (False, None)
 
+
     def _is_inside_box(self, target_transform, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
         bl_x = min(ego_box_A.x, ego_box_B.x, ego_box_C.x, ego_box_D.x)
         bl_y = min(ego_box_A.y, ego_box_B.y, ego_box_C.y, ego_box_D.y)
@@ -737,7 +737,6 @@ class MODIAAgent(object):
             return True
         else:
             return False
-
 
     def _is_vehicle_blocking(self, target_vehicle, max_distance):
         ego_transform = self._vehicle.get_transform()
