@@ -45,10 +45,12 @@ map = world.get_map()
 topology = map.get_topology()
 
 #[waypoint_start, waypoint_end] = generate_scenario(topology, map)
-[waypoint_start, waypoint_end] = generate_scenario_tree(topology, map)
+# [waypoint_start, waypoint_end] = generate_scenario_tree(topology, map)
+[waypoint_start, waypoint_end] = generate_scenario_midpoint(topology, map)
 #generate_scenario_tree(topology, map)
 
-vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.transform.location.x, y=waypoint_start.transform.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.transform.rotation.yaw, roll=0.000000)) 
+#vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.transform.location.x, y=waypoint_start.transform.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.transform.rotation.yaw, roll=0.000000)) 
+vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
 
 # Spawn Ego vehicle
 # vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
@@ -71,8 +73,8 @@ agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=T
 
 # destination = carla.Transform(carla.Location(x=317.176300, y=327.626740, z=0.0), carla.Rotation(pitch=0.000000, yaw=180.000000, roll=0.000000))
 
-destination = waypoint_end.transform
-agent.set_destination(destination.location)
+#destination = waypoint_end.transform
+agent.set_destination(waypoint_end.location)
 
 scenario = 1
 spawn_radius = 100 
