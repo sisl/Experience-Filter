@@ -306,11 +306,11 @@ class MODIAAgent(object):
             or tf_distance(self._destination, self._vehicle.get_location()) < self._destination_reached_threshold \
             or self._deadlocked()
 
-    def getobservation_history(self):
+    def get_observation_history(self):
         "Get observation history of the most recent episode."
         return self.observation_history
 
-    def getaction_history(self):
+    def get_action_history(self):
         "Get action history of the most recent episode."
         return self.action_history
 
@@ -712,17 +712,46 @@ class MODIAAgent(object):
         # print(f"C: {ego_box_C}")
         # print(f"D: {ego_box_D}")
 
+
         for target_vehicle in vehicle_list:
+            if target_vehicle.id == self._vehicle.id:
+                continue
+
             target_transform = target_vehicle.get_transform()
             # print(f"vehicle id: {target_vehicle.id}")
             # print(f"Vehicle loc: {target_transform.location}")
 
+            target_forward_vector = target_transform.get_forward_vector()
+            target_extent = target_vehicle.bounding_box.extent.x
+
+            # Get the location of the rear of the vehicle
+            target_rear_transform = carla.Transform()
+            target_rear_transform.location = target_transform.location - carla.Location(
+                x=target_extent * target_forward_vector.x,
+                y=target_extent * target_forward_vector.y,
+            )
+            # Get the location of the front of the vehicle
+            target_front_transform = carla.Transform()
+            target_front_transform.location = target_transform.location + carla.Location(
+                x=target_extent * target_forward_vector.x,
+                y=target_extent * target_forward_vector.y,
+            )
+
+            # print(f"target mid  : {target_transform}")
+            # print(f"target rear : {target_rear_transform}")
+            # print(f"target front: {target_front_transform}")
+
+            target_tfs = [target_transform, target_rear_transform, target_front_transform]
             # import ipdb; ipdb.set_trace()
-            if target_vehicle.id != self._vehicle.id and self._is_inside_box(target_transform, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
+            if self._is_any_inside_box(target_tfs, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
                 # print("got True")
                 return (True, target_vehicle)
         return (False, None)
 
+
+    def _is_any_inside_box(self, list_of_tfs, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
+        result = [self._is_inside_box(item, ego_box_A, ego_box_B, ego_box_C, ego_box_D) for item in list_of_tfs]
+        return any(result)
 
     def _is_inside_box(self, target_transform, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
         bl_x = min(ego_box_A.x, ego_box_B.x, ego_box_C.x, ego_box_D.x)
