@@ -48,7 +48,7 @@ topology = map.get_topology()
 
 #[waypoint_start, waypoint_end] = generate_scenario(topology, map)
 # [waypoint_start, waypoint_end] = generate_scenario_tree(topology, map)
-[waypoint_start, waypoint_end] = generate_scenario_midpoint(topology, map)
+[waypoint_start, waypoint_end] = generate_scenario_midpoint(topology, map, 1)
 
 #generate_scenario_tree(topology, map)
 
@@ -85,7 +85,7 @@ agent.set_destination(waypoint_end.location)
 
 scenario = 1
 spawn_radius = 100 
-vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
+vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, my_vehicle.id, 1)
 
 time_start = time.time()
 while time.time() - time_start < 30.0:

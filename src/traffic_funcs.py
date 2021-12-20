@@ -27,7 +27,6 @@ class DefaultArguments:
     tm_port = 8000
     asynch = True
     hybrid = False
-    seed = None
     hero = False
     car_lights_on = False
     respawn = False
@@ -104,7 +103,7 @@ def set_blueprint(blueprints, args):
     return blueprint
 
 
-def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0):
+def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
     
     args = DefaultArguments()
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -116,7 +115,7 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0):
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
     synchronous_master = False
-    random.seed(args.seed if args.seed is not None else int(time.time()))
+    random.seed(seed if seed is not None else int(time.time()))
 
     world = client.get_world()
     #world = client.load_world('Town01_Opt')
@@ -155,8 +154,8 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0):
     if args.hybrid:
         traffic_manager.set_hybrid_physics_mode(True)
         traffic_manager.set_hybrid_physics_radius(70.0)
-    if args.seed is not None:
-        traffic_manager.set_random_device_seed(args.seed)
+    if seed is not None:
+        traffic_manager.set_random_device_seed(seed)
 
     settings = world.get_settings()
     if not args.asynch:
@@ -354,7 +353,7 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
     synchronous_master = False
-    random.seed(args.seed if args.seed is not None else int(time.time()))
+    #random.seed(args.seed if args.seed is not None else int(time.time()))
 
     world = client.get_world()
 
@@ -377,9 +376,10 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
 
     time.sleep(0.5)
 
-def generate_scenario(topology, env_map):
+def generate_scenario(topology, env_map, seed=0):
     map_size = len(topology)
     connection = False
+    random.seed(seed)
     while (connection == False):
         # pick a random road on the topology
         top_item_no = random.randint(0, map_size-1)
@@ -414,32 +414,16 @@ def generate_scenario(topology, env_map):
                             point_test2 = np.array((waypoint_test2.transform.location.x, waypoint_test2.transform.location.y))
                             if (np.linalg.norm(point1 - point_test2) <0.1):
                                 waypoint_start = env_map.get_waypoint(waypoint_test1.transform.location, True, lane_type=carla.LaneType.Driving)
-                                '''
-                                print('waypoint 1')
-                                print(waypoint1)
-                                print('waypoint 2')
-                                print(waypoint2)
-                                print('waypoint 3')
-                                print(waypoint3)
-                                print('waypoint 4')
-                                print(waypoint4)
-                                print('waypoint test 1')
-                                print(waypoint_test1)
-                                print('waypoint test 2')
-                                print(waypoint_test2)
-                            
-                                print('waypoint_start_tranform')
-                                print(waypoint_start)
-                                print('waypoint_end_tranform')
-                                print(waypoint_end) '''
+                                
                                 #return waypoint_start_transform, waypoint_end_transform
                                 return waypoint_start, waypoint_end
 
-def generate_scenario_tree(topology, env_map):
+def generate_scenario_tree(topology, env_map, seed=0):
     map_size = len(topology)
     connection = False
     start_points = np.zeros((map_size, 2))
     end_points = np.zeros((map_size, 2))
+    random.seed(seed)
 
     # build the trees for the start and end points on the map
     for i in range(map_size):
@@ -484,27 +468,15 @@ def generate_scenario_tree(topology, env_map):
                 # set the start and end positions of the scenario
                 waypoint_start = topology[start_ind][0]
                 waypoint_end = topology[end_ind][1]
-                '''
-                print('waypoint 1')
-                print(waypoint1)
-                print('waypoint 2')
-                print(waypoint2)
-                print('waypoint_end_connnection')
-                print(waypoint_end_connnection)
-                print('waypoint_start_connnection')
-                print(waypoint_start_connnection)
-                print('waypoint_start_tranform')
-                print(waypoint_start)
-                print('waypoint_end_tranform')
-                print(waypoint_end) '''
+
                 return waypoint_start, waypoint_end
 
-def generate_scenario_midpoint(topology, env_map):
+def generate_scenario_midpoint(topology, env_map, seed=0):
     map_size = len(topology)
     connection = False
     start_points = np.zeros((map_size, 2))
     end_points = np.zeros((map_size, 2))
-
+    random.seed(seed)
     # build the trees for the start and end points on the map
     for i in range(map_size):
         waypoint_starts = topology[i][0]
@@ -542,20 +514,6 @@ def generate_scenario_midpoint(topology, env_map):
             if (dist_start < 0.1):
 
                 start_ind = ind_start[0][0]               
-                
-                '''waypoint_start_connnection = topology[start_ind][1]
-
-                # set the start and end positions of the scenario
-                waypoint_start = carla.Waypoint
-                waypoint_start.transform.location.x = (topology[start_ind][0].transform.location.x + topology[start_ind][1].transform.location.x)/2
-                waypoint_start.transform.location.y = (topology[start_ind][0].transform.location.y + topology[start_ind][1].transform.location.y)/2
-                waypoint_start.transform.location.z = topology[start_ind][0].transform.location.z
-                waypoint_start.transform.rotation = topology[start_ind][0].transform.rotation
-                waypoint_end = carla.Waypoint
-                waypoint_end.transform.location.x = (topology[end_ind][0].transform.location.x + topology[end_ind][1].transform.location.x)/2
-                waypoint_end.transform.location.y = (topology[end_ind][0].transform.location.y + topology[end_ind][1].transform.location.y)/2
-                waypoint_end.transform.location.z = topology[end_ind][1].transform.location.z
-                waypoint_end.transform.rotation = topology[end_ind][1].transform.rotation '''
 
                 waypoint_start_1 = topology[start_ind][0]
                 waypoint_start_2 = topology[start_ind][1]

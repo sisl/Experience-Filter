@@ -78,7 +78,8 @@ agent.set_destination(waypoint_end.location)
 
 scenario = 1
 spawn_radius = 100 
-vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, actor_id=my_vehicle.id)
+seed = 0
+vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, my_vehicle.id)
 
 while True:
     if agent.done():
