@@ -20,7 +20,7 @@ class MODIAAgent(object):
     MODIAAgent creates multiple decision components from pre-solved decision problems.
     """
 
-    def __init__(self, vehicle, init_belief, StopUncontrolledDP, target_speed=20, verbose_belief=False, opt_dict={}):
+    def __init__(self, vehicle, init_belief, StopUncontrolledDP, verbose_belief=False, opt_dict={}):
         """
         Initialization the agent paramters, the local and the global planner.
 
@@ -48,7 +48,7 @@ class MODIAAgent(object):
         self._State_Space = MODIA.State_Space
         self._Obs_Space = MODIA.Obs_Space
         self._get_action_from_belief = MODIA.get_action_from_belief
-        self._belief_updater = MODIA.DiscreteUpdater(MODIA.StopUncontrolledDP.Pomdp)
+        self._belief_updater = MODIA.DiscreteUpdater(StopUncontrolledDP.Pomdp)
         self.observation_history = []
         self.action_history = []
         self._consideration_diameter = 50.0   # meters
@@ -67,6 +67,7 @@ class MODIAAgent(object):
         self._waited_at_stop_sign = False
         self._last_stop_sign_road_id = None
         self._last_stop_sign_detect_time = None
+        self._entered_stop_intersection = False
 
         self._rival_A_at_dist_threshold = 4.0
         self._rival_A2_dist_threshold = 20.0
@@ -104,14 +105,12 @@ class MODIAAgent(object):
         # Base parameters
         self._ignore_traffic_lights = True
         self._ignore_vehicles = False
-        self._target_speed = target_speed
         self._sampling_resolution = 2.0
         self._base_tlight_threshold = 5.0  # meters
         self._base_vehicle_threshold = 10.0  # meters
         self._max_brake = 0.9
 
         # Change parameters according to the dictionary
-        opt_dict['target_speed'] = target_speed
         if 'ignore_traffic_lights' in opt_dict:
             self._ignore_traffic_lights = opt_dict['ignore_traffic_lights']
         if 'ignore_stop_signs' in opt_dict:
@@ -403,21 +402,26 @@ class MODIAAgent(object):
             stop_sign = self._next_stop_sign
         dist = distance_among_actors(vehicle, stop_sign)
         angle = ref_angle(vehicle, stop_sign)
+        vehicle_tf = vehicle.get_transform()
 
+        ## EGO VEHICLE ##
         if is_ego:
-            if not self._last_stop_sign and not self._waited_at_stop_sign:
-                return "before"
-            elif not self._last_stop_sign and self._waited_at_stop_sign and angle <= self._after_pos_threshold:
-                return "after"
-            elif self._last_stop_sign and (not self._waited_at_stop_sign) or (self._waited_at_stop_sign and dist < (self._base_stop_sign_threshold + 1.5*vehicle.bounding_box.extent.x)):
-                return "at"
-            else:
+            if self._is_in_junction(vehicle_tf):
                 self._last_stop_sign = None
+                self._entered_stop_intersection = True
                 return "inside"
+            elif not self._is_in_junction(vehicle_tf) and self._entered_stop_intersection:
+                return "after"
 
+            elif not self._last_stop_sign and not self._waited_at_stop_sign:
+                return "before"
+            else:
+                return "at"
+
+        ## RIVAL VEHICLE ##
         else:
             stop_sign_yaw = stop_sign.get_transform().rotation.yaw
-            vehicle_yaw = vehicle.get_transform().rotation.yaw
+            vehicle_yaw = vehicle_tf.rotation.yaw
             yaw_diff = stop_sign_yaw - vehicle_yaw
 
             if angle_is_approx(yaw_diff, 360):    # B
@@ -748,6 +752,9 @@ class MODIAAgent(object):
                 return (True, target_vehicle)
         return (False, None)
 
+    def _is_in_junction(self, tf):
+        wp = self._map.get_waypoint(tf.location)
+        return wp.is_junction
 
     def _is_any_inside_box(self, list_of_tfs, ego_box_A, ego_box_B, ego_box_C, ego_box_D):
         result = [self._is_inside_box(item, ego_box_A, ego_box_B, ego_box_C, ego_box_D) for item in list_of_tfs]
