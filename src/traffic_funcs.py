@@ -154,9 +154,9 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
     if args.hybrid:
         traffic_manager.set_hybrid_physics_mode(True)
         traffic_manager.set_hybrid_physics_radius(70.0)
-    if seed is not None:
-        traffic_manager.set_random_device_seed(seed)
-
+    #if seed is not None:
+        #print('c')
+        #traffic_manager.set_random_device_seed(seed)
     settings = world.get_settings()
     if not args.asynch:
         traffic_manager.set_synchronous_mode(True)
@@ -171,6 +171,7 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
         you could experience some issues. If it's not working correctly, switch to synchronous \
         mode by using traffic_manager.set_synchronous_mode(True)")
 
+    print('i')
     if args.no_rendering:
         settings.no_rendering_mode = True
     world.apply_settings(settings)
