@@ -4,25 +4,44 @@ using JLD
 """
     Learn from data, and update the T(s'|a,s) function.
     Treats the state with the highest belief probability obtained from the observation as the actual state.
+
+    Caution: When you pass in a list of lists through Python, it becomes a Matrix in Julia!
 """
-function learn_from_data(act_histories::AbstractArray, obs_histories::AbstractArray, StopUncontrolledDP; prior_scenario_count = 100, save_data=false, save_output=false)
+function learn_from_data(array_of_act_histories::AbstractArray, array_of_obs_histories::AbstractArray, StopUncontrolledDP; prior_scenario_count = 100, save_data=false, save_output=false)
+    
+    # Convert Matrix to Vector of Vectors.
+    if isa(array_of_act_histories, AbstractMatrix)
+        array_of_act_histories = [array_of_act_histories[i,:] for i in 1:size(array_of_act_histories,1)]
+    end
+    if isa(array_of_obs_histories, AbstractMatrix)
+        array_of_obs_histories = [array_of_obs_histories[i,:] for i in 1:size(array_of_obs_histories,1)]
+    end
+    
     timestamp = Dates.now()
-    if save_data JLD.save(string(timestamp) * "_data.jld", "act_histories", act_histories, "obs_histories", obs_histories) end
+    if save_data JLD.save(string(timestamp) * "_data.jld", "array_of_act_histories", array_of_act_histories, "array_of_obs_histories", array_of_obs_histories) end
     
     State_Space = StopUncontrolledDP.State_Space
     Trans_Func = StopUncontrolledDP.Trans_Func * prior_scenario_count
-    act_histories = Int.(act_histories)
-    obs_histories = concat_observations(obs_histories, StopUncontrolledDP.Obs_Space)
 
-    for (_, hist) in obs_histories
-        for (idx, item) in enumerate(hist[1:end-1])
-            time, obs = item
-            a = act_histories[time]
-            s = most_likely_state_from_obs(obs, State_Space)
-            _, obsp = hist[idx+1]
-            sp = most_likely_state_from_obs(obsp, State_Space)
-            Trans_Func[sp,a,s] += 1
+    # @show typeof(array_of_act_histories), length(array_of_act_histories)
+    # @show typeof(array_of_obs_histories), length(array_of_obs_histories)
+
+    for (act_histories, obs_histories) in zip(array_of_act_histories, array_of_obs_histories)
+
+        act_histories = Int.(act_histories)
+        obs_histories = concat_observations(obs_histories, StopUncontrolledDP.Obs_Space)
+
+        for (_, hist) in obs_histories
+            for (idx, item) in enumerate(hist[1:end-1])
+                time, obs = item
+                a = act_histories[time]
+                s = most_likely_state_from_obs(obs, State_Space)
+                _, obsp = hist[idx+1]
+                sp = most_likely_state_from_obs(obsp, State_Space)
+                Trans_Func[sp,a,s] += 1
+            end
         end
+
     end
 
     result = normalize_Func(Trans_Func)
@@ -61,7 +80,7 @@ function most_likely_state_from_obs(obs::NamedTuple, State_Space::Dict)
 end
 
 """Load data, that was saved through `learn_from_data`."""
-function load_saved_data(filename::String, is_output=false)    
+function load_saved_data(filename::String; is_output=false)    
     d = JLD.load(filename)
-    return is_output ? d["Trans_Func"] : (d["act_histories"], d["obs_histories"])
+    return is_output ? d["Trans_Func"] : (d["array_of_act_histories"], d["array_of_obs_histories"])
 end
