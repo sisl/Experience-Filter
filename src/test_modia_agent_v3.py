@@ -6,7 +6,7 @@ import subprocess
 import time 
 
 from helper_funcs import *
-from traffic_funcs import *
+from traffic_funcs import ScenarioParams, PresetScenarios, generate_scenario_midpoint, generate_traffic_func, kill_traffic
 
 # Add Carla PythonAPI scripts to path
 sys.path.append('./PythonAPI/carla/')
@@ -83,10 +83,10 @@ agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=T
 # agent.set_destination(destination.location)
 agent.set_destination(waypoint_end.location)
 
-
-scenario = 1
-spawn_radius = 100 
-vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, spawn_radius, my_vehicle.id, random_seed)
+scenario = PresetScenarios.NORMAL
+number_of_vehicles = 30
+spawn_radius = 100.0
+vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(scenario, number_of_vehicles, spawn_radius, my_vehicle.id, random_seed)
 
 time_start = time.time()
 while time.time() - time_start < 30.0:

@@ -93,7 +93,7 @@ class MODIAAgent(object):
 
         self._rival_blocking = {True: 1.0, False: 2.0}
         self._aggsv_vals = {"cautious": 1.0, "normal": 2.0, "aggressive": 3.0}
-        self._cautious_threshold = 10.0   # m/s
+        self._cautious_threshold = 15.0   # m/s
         self._aggressive_threshold = 30.0   # m/s
 
         self._last_edge_action = 3
@@ -362,7 +362,6 @@ class MODIAAgent(object):
     def _deadlocked(self):
         """Check if the scenario is deadlocked."""
         # print(f"Vehicle speed in m/s: {get_speed(self._vehicle)}")
-
         if get_speed(self._vehicle) < 0.1:
             if not self._deadlock_countdown:
                 self._deadlock_countdown = time.time()

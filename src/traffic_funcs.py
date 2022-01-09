@@ -1,7 +1,8 @@
+from networkx.utils.misc import default_opener
 import carla
 import sys
 import numpy as np
-import random
+# import random
 import glob
 import os
 import time
@@ -13,6 +14,8 @@ from numpy import random
 
 import argparse
 import logging
+from dataclasses import dataclass, is_dataclass
+import enum
 
 class DefaultArguments:
     port = 2000
@@ -31,6 +34,25 @@ class DefaultArguments:
     car_lights_on = False
     respawn = False
     no_rendering = False
+    default_verbose = False
+
+@dataclass
+class ScenarioParams:
+    min_speed: float = 0.0
+    max_speed: float = 99.0
+    traffic_speed_limit: float = 30.0  # Carla default.
+    ignore_vehicles_percentage: float = 0.0
+
+    def get_random_speed_perc(self):
+        assert self.max_speed >= self.min_speed, "max_speed should have been higher than min_speed"
+        speed_perc_lower = -(self.min_speed / self.traffic_speed_limit * 100 - 100)
+        speed_perc_upper = -(self.max_speed / self.traffic_speed_limit * 100 - 100)
+        return random.uniform(low=speed_perc_lower, high=speed_perc_upper)
+
+class PresetScenarios(enum.Enum):
+    CAUTIOUS = ScenarioParams(min_speed=5, max_speed=10)
+    NORMAL = ScenarioParams(min_speed=20, max_speed=25)
+    AGGRESSIVE = ScenarioParams(min_speed=50, max_speed=60, ignore_vehicles_percentage=10.0)
 
 def is_within_distance(spawn_transform, spct_transform, max_distance, min_distance):
     difference_vector = np.array([
@@ -103,7 +125,11 @@ def set_blueprint(blueprints, args):
     return blueprint
 
 
-def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
+def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, actor_id=0, seed=0):
+
+    if isinstance(scenario, enum.Enum):
+        print(f"INFO: Loaded preset scenario: {scenario.name}")
+        scenario = scenario.value   # just keep the ScenarioParams value 
     
     args = DefaultArguments()
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -120,7 +146,8 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
     world = client.get_world()
     #world = client.load_world('Town01_Opt')
 
-    number_of_vehicles = args.number_of_vehicles
+    if number_of_vehicles == 0:
+        number_of_vehicles = args.number_of_vehicles
     number_of_walkers = args.number_of_walkers
     map_spawn_points = world.get_map().get_spawn_points()        
     number_of_spawn_points = len(map_spawn_points)
@@ -143,8 +170,8 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
                 spawn_points.append(transform)       
         number_of_spawn_points = len(spawn_points)
 
-    print('spawn points number: ')
-    print(number_of_spawn_points)
+    if args.default_verbose: 
+        print(f"spawn points number: {number_of_spawn_points}")
 
     # Traffic manager setup
     traffic_manager = client.get_trafficmanager(args.tm_port)
@@ -166,7 +193,7 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
             settings.fixed_delta_seconds = 0.05
         else:
             synchronous_master = False
-    else:
+    elif args.default_verbose:
         print("You are currently in asynchronous mode. If this is a traffic simulation, \
         you could experience some issues. If it's not working correctly, switch to synchronous \
         mode by using traffic_manager.set_synchronous_mode(True)")
@@ -179,7 +206,14 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
     blueprints, blueprintsWalkers = blueprint_setup(world, args)
 
     # scenario setup
-    if (scenario == 0):
+    if is_dataclass(scenario):  # check if it is a ScenarioParams
+        # number_of_normal_vehicles = scenario.number_of_normal_vehicles
+        # number_of_cauitous_vehicles = scenario.number_of_cauitous_vehicles
+        # number_of_aggressive_vehicles = scenario.number_of_aggressive_vehicles
+        # number_of_walkers = scenario.number_of_walkers
+        pass  # placeholder. no need to do anything here.
+
+    elif (scenario == 0):
         number_of_vehicles = int(0.3 * number_of_spawn_points)
         number_of_normal_vehicles = 0
         number_of_cauitous_vehicles = number_of_vehicles  
@@ -227,17 +261,23 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
             vehicle.set_autopilot(True,args.tm_port)
             vehicles_list.append(vehicle)
 
-            if (scenario == 0 and n < number_of_cauitous_vehicles):
+            if (is_dataclass(scenario) and n < number_of_vehicles):   # check if it is a ScenarioParams
+                speed_perc = scenario.get_random_speed_perc()
+                # print(f"speed perc: {speed_perc}, vehicle id: {vehicle.id}")
+                traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
+                traffic_manager.ignore_vehicles_percentage(vehicle, scenario.ignore_vehicles_percentage)
+
+            elif (scenario == 0 and n < number_of_cauitous_vehicles):
                 # cautious cars
                 speed_perc = 10*random.rand()+30 #60-70% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
-            if (scenario == 1 and n < number_of_normal_vehicles):
+            elif (scenario == 1 and n < number_of_normal_vehicles):
                 # cautious cars
                 speed_perc = 10*random.rand()+10 #80-90% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
 
-            if(scenario == 2 and n < number_of_aggressive_vehicles):
+            elif(scenario == 2 and n < number_of_aggressive_vehicles):
                 # aggressive cars
                 speed_perc = -10*random.rand()-10 #110-120% of the speed limit
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
@@ -249,14 +289,7 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
             print('vehicle none')
             number_of_vehicles = number_of_vehicles + 1
 
-    if (scenario == 0):
-            print('spawned %d cautious vehicles.' % (number_of_cauitous_vehicles))
-
-    if (scenario == 1):
-            print('spawned %d normal vehicles.' % (number_of_normal_vehicles))
-
-    if (scenario == 2):
-            print('spawned %d aggressive vehicles.' % (number_of_aggressive_vehicles))
+    print(f"INFO: Total vehicles spawned = {number_of_vehicles}")
 
     # -------------
     # Spawn Walkers
@@ -335,7 +368,8 @@ def generate_traffic_func(scenario=0, spawn_radius=100, actor_id=0, seed=0):
         # max speed
         all_actors[i].set_max_speed(float(walker_speed[int(i/2)]))
 
-    print('spawned %d vehicles and %d walkers, press Ctrl+C to exit.' % (len(vehicles_list), len(walkers_list)))
+    if args.default_verbose:
+        print('spawned %d vehicles and %d walkers, press Ctrl+C to exit.' % (len(vehicles_list), len(walkers_list)))
 
     # Example of how to use Traffic Manager parameters
     # traffic_manager.global_percentage_speed_difference(0.2)
