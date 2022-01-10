@@ -365,7 +365,7 @@ class MODIAAgent(object):
         if get_speed(self._vehicle) < 0.1:
             if not self._deadlock_countdown:
                 self._deadlock_countdown = time.time()
-            print(f"Time spent in deadlock: {time.time() - self._deadlock_countdown}")
+            # print(f"Time spent in deadlock: {time.time() - self._deadlock_countdown}")
         else:
             self._deadlock_countdown = None
 

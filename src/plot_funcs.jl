@@ -4,7 +4,7 @@ using BeliefUpdaters: DiscreteBelief
 using Plots
 using ProgressBars
 
-function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; ego_pos=:at, rival_aggresiveness=:normal, show_map_only=true)
+function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; ego_pos=:at, rival_aggresiveness=:normal, return_map_only=true, save_map=false)
     
     get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
     get_state_blk(idx::Int) = [:yes, :no][idx]
@@ -37,14 +37,15 @@ function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; eg
         end
     end
 
-    plt = Plots.heatmap(X, Y, Z, title="Ego Position: $ego_pos, Rival Aggr: $rival_aggresiveness")
+    plt = Plots.heatmap(X, Y, Z, clim=(1.0, 3.0), title="Ego Position: $ego_pos, Rival Aggr: $rival_aggresiveness")
     xlabel!(plt, "Rival Blocking")
     ylabel!(plt, "Rival Position")
     yticks!(plt, [1,2,3,4], ["before", "at", "inside", "after"])
     xticks!(plt, [1,2], ["yes", "no"])
 
-    return show_map_only ? plt : (X, Y, Z, plt)
+    save_map ? Plots.savefig(plt, "policy_map.png") : nothing
+    return return_map_only ? plt : (X, Y, Z, plt)
 
 end
 
-get_policy_map(DP; ego_pos=:at, rival_aggresiveness=:normal, show_map_only=true) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=ego_pos, rival_aggresiveness=rival_aggresiveness, show_map_only=show_map_only)
+get_policy_map(DP; ego_pos=:at, rival_aggresiveness=:normal, return_map_only=true) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=ego_pos, rival_aggresiveness=rival_aggresiveness, return_map_only=return_map_only)

@@ -21,7 +21,7 @@ class DefaultArguments:
     port = 2000
     host = '127.0.0.1'
     number_of_vehicles = 30
-    number_of_walkers = 10
+    number_of_walkers = 0
     safe = True
     filterv = 'vehicle.*'
     filterw = 'walker.pedestrian.*'
@@ -52,7 +52,7 @@ class ScenarioParams:
 class PresetScenarios(enum.Enum):
     CAUTIOUS = ScenarioParams(min_speed=5, max_speed=10)
     NORMAL = ScenarioParams(min_speed=20, max_speed=25)
-    AGGRESSIVE = ScenarioParams(min_speed=50, max_speed=60, ignore_vehicles_percentage=10.0)
+    AGGRESSIVE = ScenarioParams(min_speed=80, max_speed=90)
 
 def is_within_distance(spawn_transform, spct_transform, max_distance, min_distance):
     difference_vector = np.array([
@@ -198,7 +198,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
         you could experience some issues. If it's not working correctly, switch to synchronous \
         mode by using traffic_manager.set_synchronous_mode(True)")
 
-    print('i')
+    # print('i')
     if args.no_rendering:
         settings.no_rendering_mode = True
     world.apply_settings(settings)
@@ -265,7 +265,11 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
                 speed_perc = scenario.get_random_speed_perc()
                 # print(f"speed perc: {speed_perc}, vehicle id: {vehicle.id}")
                 traffic_manager.vehicle_percentage_speed_difference(vehicle,speed_perc)
-                traffic_manager.ignore_vehicles_percentage(vehicle, scenario.ignore_vehicles_percentage)
+                # traffic_manager.ignore_vehicles_percentage(vehicle, scenario.ignore_vehicles_percentage)
+                traffic_manager.ignore_lights_percentage(vehicle, 100)
+                traffic_manager.ignore_walkers_percentage(vehicle, 100)
+                traffic_manager.distance_to_leading_vehicle(vehicle, 1)
+                traffic_manager.ignore_signs_percentage(vehicle, 100)
 
             elif (scenario == 0 and n < number_of_cauitous_vehicles):
                 # cautious cars

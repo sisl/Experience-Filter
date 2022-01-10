@@ -1,5 +1,7 @@
 import carla
 import numpy as np
+import time
+import pickle
 
 def printl(L, log_name=""):
     """Print elements of an iterable object. Useful for objects like L = <carla.libcarla.ActorList>."""
@@ -99,3 +101,28 @@ def is_ahead_of_reference(query_actor, reference_actor):
 
     else:   # angle_is_approx(query_yaw, 180) or angle_is_approx(query_yaw, -180):
         return query_actor.get_location().x < reference_actor.get_location().x
+
+def save_with_pkl(data, savename, is_stamped):
+    if is_stamped:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"{savename}_{timestamp}.pkl"
+    else:
+        filename = f"{savename}.pkl"
+
+    with open(filename, 'wb') as f:
+        pickle.dump(data, f)
+    return
+
+def load_with_pkl(loadname):
+    with open(loadname, 'rb') as f:
+        L = pickle.load(f)
+    return L
+
+def load_many_with_pkl(list_of_loadnames, len_of_loadname=2):
+    result = [[] for _ in range(len_of_loadname)]   # pre-allocation
+
+    for loadname in list_of_loadnames:
+        L = load_with_pkl(loadname)
+        for idx in range(len_of_loadname):
+            result[idx].extend(L[idx])
+    return result
