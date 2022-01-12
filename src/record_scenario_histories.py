@@ -61,6 +61,7 @@ topology = map.get_topology()
 
 # Create ego vehicle
 vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
+client.reload_world()
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
@@ -76,6 +77,7 @@ ALL_OBSERVATION_HISTORIES = []
 for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
 
     # Reset back to init tf
+    
     my_vehicle.set_transform(vehicle_init_tf)
     time.sleep(1)
 
@@ -86,14 +88,15 @@ for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
 
     # Generate traffic
     traffic_gen_seed = trial
-    vehicles_list, walkers_list, all_id, all_actors = generate_traffic_func(args.scenario_type, args.number_of_vehicles, args.spawn_radius, my_vehicle.id, traffic_gen_seed)
+    vehicles_list, walkers_list, all_id, all_actors, traffic_manager = generate_traffic_func(args.scenario_type, args.number_of_vehicles, args.spawn_radius, my_vehicle.id, traffic_gen_seed)
 
     time_start = time.time()
     while time.time() - time_start < args.timeout_duration:
+        world.tick()
         if agent.done():
             print("Target destination has been reached. Stopping vehicle.")
             my_vehicle.apply_control(agent.halt_stop())
-            kill_traffic(vehicles_list, walkers_list, all_id, all_actors)
+            kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
             # orient.kill()
             break
 
@@ -101,7 +104,7 @@ for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
 
     print(f"Trial: {trial}, Time taken: {time.time() - time_start}")
     my_vehicle.apply_control(agent.halt_stop())
-    kill_traffic(vehicles_list, walkers_list, all_id, all_actors)
+    kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
     # orient.kill()
 
     ALL_ACTION_HISTORIES.append(agent.get_action_history())
