@@ -28,7 +28,7 @@ class DefaultArguments:
     generationv = 'All'
     generationw = '2' 
     tm_port = 8000
-    asynch = True
+    asynch = False
     hybrid = False
     hero = False
     car_lights_on = False
@@ -144,6 +144,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     random.seed(seed if seed is not None else int(time.time()))
 
     world = client.get_world()
+    
     #world = client.load_world('Town01_Opt')
 
     if number_of_vehicles == 0:
@@ -181,10 +182,16 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     if args.hybrid:
         traffic_manager.set_hybrid_physics_mode(True)
         traffic_manager.set_hybrid_physics_radius(70.0)
-    #if seed is not None:
-        #print('c')
-        #traffic_manager.set_random_device_seed(seed)
+    
+    init_settings = world.get_settings()
     settings = world.get_settings()
+    settings.synchronous_mode = True
+    settings.fixed_delta_seconds = 0.05
+    traffic_manager.set_synchronous_mode(True)    
+    traffic_manager.set_random_device_seed(seed)
+
+
+    '''
     if not args.asynch:
         traffic_manager.set_synchronous_mode(True)
         if not settings.synchronous_mode:
@@ -197,12 +204,13 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
         print("You are currently in asynchronous mode. If this is a traffic simulation, \
         you could experience some issues. If it's not working correctly, switch to synchronous \
         mode by using traffic_manager.set_synchronous_mode(True)")
+    '''    
 
     # print('i')
     if args.no_rendering:
         settings.no_rendering_mode = True
-    world.apply_settings(settings)
 
+    
     blueprints, blueprintsWalkers = blueprint_setup(world, args)
 
     # scenario setup
@@ -356,10 +364,14 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     all_actors = world.get_actors(all_id)
 
     # wait for a tick to ensure client receives the last transform of the walkers we have just created
+    '''
     if args.asynch or not synchronous_master:
         world.wait_for_tick()
     else:
         world.tick()
+    '''
+    world.apply_settings(init_settings)
+    world.tick()
 
     # 5. initialize each controller and set target to walk to (list is [controler, actor, controller, actor ...])
     # set how many pedestrians can cross the road
@@ -378,16 +390,9 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     # Example of how to use Traffic Manager parameters
     # traffic_manager.global_percentage_speed_difference(0.2)
 
-    '''
-    while True:
-        if not args.asynch and synchronous_master:
-            world.tick()
-        else:
-            world.wait_for_tick()       
-    '''
-    return vehicles_list, walkers_list, all_id, all_actors
+    return vehicles_list, walkers_list, all_id, all_actors, traffic_manager
 
-def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
+def kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager):
     args = DefaultArguments()
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
@@ -402,6 +407,10 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors):
         settings.no_rendering_mode = False
         settings.fixed_delta_seconds = None
         world.apply_settings(settings)
+    
+    settings = world.get_settings()
+    settings.synchronous_mode = False
+    traffic_manager.set_synchronous_mode(False)    
 
     print('\ndestroying %d vehicles' % len(vehicles_list))
     client.apply_batch([carla.command.DestroyActor(x) for x in vehicles_list])
