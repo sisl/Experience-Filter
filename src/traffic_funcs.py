@@ -186,7 +186,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     init_settings = world.get_settings()
     settings = world.get_settings()
     settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 0.05
+    settings.fixed_delta_seconds = 0.025
     traffic_manager.set_synchronous_mode(True)    
     traffic_manager.set_random_device_seed(seed)
 
@@ -370,7 +370,8 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     else:
         world.tick()
     '''
-    world.apply_settings(init_settings)
+    #world.apply_settings(init_settings)
+    world.apply_settings(settings)
     world.tick()
 
     # 5. initialize each controller and set target to walk to (list is [controler, actor, controller, actor ...])
@@ -390,7 +391,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     # Example of how to use Traffic Manager parameters
     # traffic_manager.global_percentage_speed_difference(0.2)
 
-    return vehicles_list, walkers_list, all_id, all_actors, traffic_manager
+    return vehicles_list, walkers_list, all_id, all_actors, traffic_manager, settings
 
 def kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager):
     args = DefaultArguments()

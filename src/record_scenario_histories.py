@@ -15,14 +15,14 @@ sys.path.append('./PythonAPI/carla/')
 
 # Set args for training
 class TrialArguments:
-    num_of_trials = 1000
+    num_of_trials = 4
     timeout_duration = 30.0
     scenario_type = PresetScenarios.AGGRESSIVE
     number_of_vehicles = 50
     spawn_radius = 100.0
     pkl_savename = "Aggressive_50cars"
     pkl_frequency = 10
-    orient_spectator = False
+    orient_spectator = True
     verbose_belief = False
 
 # Create Carla client and world
@@ -49,7 +49,7 @@ importlib.reload(sys.modules['modia_agent'])
 from modia_agent import MODIAAgent
 
 # Replace all traffic lights with construction cones
-exec(open("./nodes/replace_actors_type.py").read())
+#exec(open("./nodes/replace_actors_type.py").read())
 
 # Generate waypoints for ego path
 road_seed = 1
@@ -61,7 +61,8 @@ topology = map.get_topology()
 
 # Create ego vehicle
 vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
-client.reload_world()
+
+exec(open("./nodes/replace_actors_type.py").read())
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
@@ -69,7 +70,6 @@ print(f"My vehicle ID: {my_vehicle.id}")
 
 # Orient the spectator w.r.t. `my_vehicle.id`
 if args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
-
 
 ALL_ACTION_HISTORIES = []
 ALL_OBSERVATION_HISTORIES = []
@@ -88,11 +88,14 @@ for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
 
     # Generate traffic
     traffic_gen_seed = trial
-    vehicles_list, walkers_list, all_id, all_actors, traffic_manager = generate_traffic_func(args.scenario_type, args.number_of_vehicles, args.spawn_radius, my_vehicle.id, traffic_gen_seed)
+    vehicles_list, walkers_list, all_id, all_actors, traffic_manager, world_settings = generate_traffic_func(args.scenario_type, args.number_of_vehicles, args.spawn_radius, my_vehicle.id, traffic_gen_seed)
+    settings = world.get_settings()
+    settings.fixed_delta_seconds = world_settings.fixed_delta_seconds
 
     time_start = time.time()
     while time.time() - time_start < args.timeout_duration:
         world.tick()
+
         if agent.done():
             print("Target destination has been reached. Stopping vehicle.")
             my_vehicle.apply_control(agent.halt_stop())
