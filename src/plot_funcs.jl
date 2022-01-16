@@ -4,13 +4,13 @@ using BeliefUpdaters: DiscreteBelief
 using Plots
 using ProgressBars
 
-function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; ego_pos=:at, rival_aggresiveness=:normal, return_map_only=true, save_map=false)
+function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; ego_pos=:at, rival_aggresiveness=:normal, clr_line_of_sight = :no, return_map_only=true, save_map=false)
     
     get_state_pos(idx::Int) = [:before, :at, :inside, :after][idx]
     get_state_blk(idx::Int) = [:yes, :no][idx]
     
-    X = rival_blocking_range = collect(1 : 0.001 : 2)
-    Y = rival_pos_range = collect(1 : 0.001 : 4)
+    X = rival_blocking_range = collect(1 : 0.01 : 2)
+    Y = rival_pos_range = collect(1 : 0.01 : 4)
     Z = zeros(length(Y), length(X))
     
     # Loop through `rival_pos` and `rival_blocking`
@@ -21,10 +21,10 @@ function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; eg
             j_pct, j_cl, j_fl = j %1, ceil(Int, j), floor(Int, j)
             s_pct = [i_pct*j_pct, (1-i_pct)*j_pct, i_pct*(1-j_pct), (1-i_pct)*(1-j_pct)]
 
-            s1 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness)
-            s2 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness)
-            s3 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness)
-            s4 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness)
+            s1 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness, clr_line_of_sight = clr_line_of_sight)
+            s2 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_cl), rival_aggresiveness=rival_aggresiveness, clr_line_of_sight = clr_line_of_sight)
+            s3 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_cl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness, clr_line_of_sight = clr_line_of_sight)
+            s4 = (ego_pos=ego_pos, rival_pos=get_state_pos(i_fl), rival_blocking=get_state_blk(j_fl), rival_aggresiveness=rival_aggresiveness, clr_line_of_sight = clr_line_of_sight)
 
             s_list = [State_Space[i] for i in [s1, s2, s3, s4]]
             state_list = ordered_states(pomdp)
@@ -48,4 +48,4 @@ function get_policy_map(pomdp::POMDPs.POMDP, pol::POMDPs.Policy, State_Space; eg
 
 end
 
-get_policy_map(DP; ego_pos=:at, rival_aggresiveness=:normal, return_map_only=true) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=ego_pos, rival_aggresiveness=rival_aggresiveness, return_map_only=return_map_only)
+get_policy_map(DP; ego_pos=:at, rival_aggresiveness=:normal, clr_line_of_sight = :no, return_map_only=true) = get_policy_map(DP.Pomdp, DP.policy, DP.State_Space; ego_pos=ego_pos, rival_aggresiveness=rival_aggresiveness, clr_line_of_sight=clr_line_of_sight, return_map_only=return_map_only)

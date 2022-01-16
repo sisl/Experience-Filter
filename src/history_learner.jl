@@ -75,7 +75,8 @@ function most_likely_state_from_obs(obs::NamedTuple, State_Space::Dict)
     vals = (vehicle_pos_vals[obs.ego_pos],
             vehicle_pos_vals[obs.rival_pos],
             binary_vals[obs.rival_blocking],
-            rival_aggsv_vals[obs.rival_vel])
+            rival_aggsv_vals[obs.rival_aggresiveness])
+            # TODO. add new obs dim
     return State_Space[NamedTuple{Symbol.(names)}(vals)]::Int
 end
 

@@ -21,9 +21,9 @@ export
 	DiscreteUpdater,
 	update_belief
 
-include("plot_funcs.jl")
-export
-	get_policy_map
+# include("plot_funcs.jl")
+# export
+# 	get_policy_map
 
 include("helper_funcs.jl")
 export

@@ -209,10 +209,42 @@ function define_Trans_Func(State_Space::Dict, Action_Space::Dict, params::NamedT
                     Trans_Func[val_sp, val_a, val_s] *= params.aggresiveness_changes
 
                 else
-                    Trans_Func[val_sp, val_a, val_s] *= params.aggresiveness_stays
+                    Trans_Func[val_sp, val_a, val_s] *= (1.0 - params.aggresiveness_changes) / 2.0
 
                 end
  
+                # Transitions of `clr_line_of_sight`
+                if key_s.ego_pos == :at
+
+                    if key_s.clr_line_of_sight == :yes
+                        if key_sp.clr_line_of_sight == :yes
+                            Trans_Func[val_sp, val_a, val_s] *= 1.0    # (yes -> yes)
+                        else
+                            Trans_Func[val_sp, val_a, val_s] *= 0.0    # (yes -> no)
+                        end
+
+                    else # key_s.clr_line_of_sight == :no
+                        if key_sp.clr_line_of_sight == :yes
+                            if key_a == :edge || key_a == :go
+                                Trans_Func[val_sp, val_a, val_s] *= params.clr_line_of_sight_changes    # (no -> yes)
+                            else
+                                Trans_Func[val_sp, val_a, val_s] *= 0.0    # (no -> no)
+                            end
+
+                        else # key_sp.clr_line_of_sight == :no
+                            if key_a == :edge || key_a == :go
+                                Trans_Func[val_sp, val_a, val_s] *= 1.0 - params.clr_line_of_sight_changes    # (no -> yes)
+                            else
+                                Trans_Func[val_sp, val_a, val_s] *= 1.0    # (no -> no)
+                            end
+                        end
+                    end
+                elseif key_s.clr_line_of_sight == key_sp.clr_line_of_sight
+                    Trans_Func[val_sp, val_a, val_s] *= 1.0
+                else
+                    Trans_Func[val_sp, val_a, val_s] *= 0.0
+                end
+
             end
         end
     end
@@ -261,6 +293,9 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
     # Guess the blocking of rival (and the probabilities), given an observation about it.
     blk_nearest(o::Float64, params::NamedTuple) = nearest(o=o, levels=[:yes, :no], prob=params.blocking_guess)
 
+    # Guess the clearness of sight (and the probabilities), given an observation about it.
+    clr_sight_nearest(o::Float64, params::NamedTuple) = nearest(o=o, levels=[:yes, :no], prob=params.clr_line_of_sight_guess)
+
     
     for (key_o, val_o) in Obs_Space
         for (key_a, val_a) in Action_Space
@@ -290,16 +325,6 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
                     end
                 end
 
-                # # Observations of `rival_blocking`
-                # for (i,j) in zip(st_egos, st_rivals)
-                #     if (i == j == :inside) || (i == j == :after)
-                #         Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? params.blocking_guess : 1.0 - params.blocking_guess 
-                #     else
-                #         Obs_Func[val_o, val_a, val_s] *= key_s.rival_blocking == :yes ? 0.0 : 1.0
-                #     end
-                # end
-
-
                 # Observations of `rival_blocking`
                 st_blk, probs, rem_probs = blk_nearest(key_o.rival_blocking, params)
                 for (i,j) in zip(st_blk, probs)
@@ -312,8 +337,20 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
                     end
                 end
 
+                # Observations of `clr_line_of_sight`
+                st_blk, probs, rem_probs = clr_sight_nearest(key_o.clr_line_of_sight, params)
+                for (i,j) in zip(st_blk, probs)
+                    if key_s.clr_line_of_sight == i
+                        Obs_Func[val_o, val_a, val_s] *= j
+                        # @show j
+                    else
+                        Obs_Func[val_o, val_a, val_s] *= rem_probs
+                        # @show rem_probs
+                    end
+                end
+
                 # Observations of `rival_aggresiveness`
-                st_rv_aggr, probs, rem_probs = aggr_nearest(key_o.rival_vel, params)
+                st_rv_aggr, probs, rem_probs = aggr_nearest(key_o.rival_aggresiveness, params)
                 for (i,j) in zip(st_rv_aggr, probs)
                     if key_s.rival_aggresiveness == i
                         Obs_Func[val_o, val_a, val_s] *= j
@@ -368,16 +405,20 @@ function define_Reward_Func(State_Space::Dict, Action_Space::Dict, params::Named
             # Final state (desired)
             if key_s.ego_pos == :after && key_a == :go
                 Reward_Func[val_s, val_a] = params.final_reward
+            
+            # Crash state (undesired)
+            elseif key_s.ego_pos == key_s.rival_pos == :inside && key_s.rival_blocking == :yes
+                Reward_Func[val_s, val_a] = params.crash_reward
             end
 
             # Taken over state (slightly undesired)
-            if key_s.rival_blocking == :yes
-                Reward_Func[val_s, val_a] = params.taken_over_reward
+            if key_s.rival_blocking == :yes && key_a != :stop
+                Reward_Func[val_s, val_a] += params.taken_over_reward
             end
 
-            # Crash state (undesired)
-            if key_s.ego_pos == key_s.rival_pos == :inside && key_s.rival_blocking == :yes
-                Reward_Func[val_s, val_a] = params.crash_reward
+            # Clearing line of sight when at stop sign (slightly desired)
+            if key_s.clr_line_of_sight == :no && key_a == :edge
+                Reward_Func[val_s, val_a] += params.clearing_sight_at_stop
             end
 
         end

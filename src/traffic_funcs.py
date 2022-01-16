@@ -1,3 +1,4 @@
+import string
 from networkx.utils.misc import default_opener
 import carla
 import sys
@@ -28,7 +29,7 @@ class DefaultArguments:
     generationv = 'All'
     generationw = '2' 
     tm_port = 8000
-    asynch = False
+    asynch = True
     hybrid = False
     hero = False
     car_lights_on = False
@@ -185,13 +186,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     
     init_settings = world.get_settings()
     settings = world.get_settings()
-    settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 0.025
-    traffic_manager.set_synchronous_mode(True)    
-    traffic_manager.set_random_device_seed(seed)
 
-
-    '''
     if not args.asynch:
         traffic_manager.set_synchronous_mode(True)
         if not settings.synchronous_mode:
@@ -204,7 +199,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
         print("You are currently in asynchronous mode. If this is a traffic simulation, \
         you could experience some issues. If it's not working correctly, switch to synchronous \
         mode by using traffic_manager.set_synchronous_mode(True)")
-    '''    
+       
 
     # print('i')
     if args.no_rendering:
@@ -364,15 +359,11 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     all_actors = world.get_actors(all_id)
 
     # wait for a tick to ensure client receives the last transform of the walkers we have just created
-    '''
     if args.asynch or not synchronous_master:
         world.wait_for_tick()
     else:
         world.tick()
-    '''
-    #world.apply_settings(init_settings)
-    world.apply_settings(settings)
-    world.tick()
+    
 
     # 5. initialize each controller and set target to walk to (list is [controler, actor, controller, actor ...])
     # set how many pedestrians can cross the road
@@ -391,7 +382,7 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
     # Example of how to use Traffic Manager parameters
     # traffic_manager.global_percentage_speed_difference(0.2)
 
-    return vehicles_list, walkers_list, all_id, all_actors, traffic_manager, settings
+    return vehicles_list, walkers_list, all_id, all_actors, traffic_manager
 
 def kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager):
     args = DefaultArguments()
@@ -409,9 +400,9 @@ def kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manage
         settings.fixed_delta_seconds = None
         world.apply_settings(settings)
     
-    settings = world.get_settings()
-    settings.synchronous_mode = False
-    traffic_manager.set_synchronous_mode(False)    
+    #settings = world.get_settings()
+    #settings.synchronous_mode = False
+    #traffic_manager.set_synchronous_mode(False)    
 
     print('\ndestroying %d vehicles' % len(vehicles_list))
     client.apply_batch([carla.command.DestroyActor(x) for x in vehicles_list])
