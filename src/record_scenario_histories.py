@@ -23,8 +23,8 @@ class TrainArguments:
     orient_spectator = False
     verbose_belief = False
     env_observability_settings = {"low": False, "high": True}
-    env_density_settings = {"high": 40}   # no. of rivals   "low": 5, "med": 15, 
-    env_aggressiveness_settings = {"cautious": PresetScenarios.CAUTIOUS, "normal": PresetScenarios.NORMAL, "aggressive": PresetScenarios.AGGRESSIVE}
+    env_density_settings = {"low": 5, "med": 15, "high": 40}
+    env_aggressiveness_settings = {"cautious": PresetScenarios.CAUTIOUS, "normal": PresetScenarios.NORMAL, "aggressive": PresetScenarios.AGGRESSIVE} 
 
 # Create Carla client and world
 train_args = TrainArguments()
@@ -68,9 +68,6 @@ my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 print(f"My vehicle ID: {my_vehicle.id}")
 
 
-
-
-
 for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc="Env Observability"):
     for (key2, ENV_DENS) in tqdm(train_args.env_density_settings.items(), desc="Env Density"):
         for (key3, ENV_AGGR) in tqdm(train_args.env_aggressiveness_settings.items(), desc="Env Aggressiveness"):
@@ -81,8 +78,7 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
             ALL_OBSERVATION_HISTORIES = []
 
 
-            for trial in tqdm(range(71, train_args.num_of_trials), desc="Trial running"):
-                # TODO: Change above
+            for trial in tqdm(range(train_args.num_of_trials), desc="Trial running"):
 
                 # Orient the spectator w.r.t. `my_vehicle.id`
                 if train_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
