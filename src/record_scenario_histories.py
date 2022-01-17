@@ -23,7 +23,7 @@ class TrialArguments:
     pkl_savename = "Aggressive_50cars"
     pkl_frequency = 10
     orient_spectator = True
-    verbose_belief = False
+    verbose_belief = True
 
 # Create Carla client and world
 client = carla.Client('localhost', 2000)
@@ -60,7 +60,7 @@ topology = map.get_topology()
 [waypoint_start, waypoint_end] = generate_scenario_midpoint(topology, map, road_seed)
 
 # Create ego vehicle
-vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
+vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=0.1) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
 
 exec(open("./nodes/replace_actors_type.py").read())
 my_vehicle_tf = vehicle_init_tf
@@ -77,10 +77,8 @@ ALL_OBSERVATION_HISTORIES = []
 for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
 
     # Reset back to init tf
-    
     my_vehicle.set_transform(vehicle_init_tf)
     time.sleep(1)
-
     # Start an agent
     init_belief = uniform_belief(StopUncontrolledDP.Pomdp)
     agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP, verbose_belief=args.verbose_belief)
@@ -89,8 +87,7 @@ for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
     # Generate traffic
     traffic_gen_seed = trial
     vehicles_list, walkers_list, all_id, all_actors, traffic_manager, world_settings = generate_traffic_func(args.scenario_type, args.number_of_vehicles, args.spawn_radius, my_vehicle.id, traffic_gen_seed)
-    settings = world.get_settings()
-    settings.fixed_delta_seconds = world_settings.fixed_delta_seconds
+    print('traffic generated')
 
     time_start = time.time()
     while time.time() - time_start < args.timeout_duration:
@@ -99,15 +96,18 @@ for trial in tqdm(range(args.num_of_trials), desc="Trial running"):
         if agent.done():
             print("Target destination has been reached. Stopping vehicle.")
             my_vehicle.apply_control(agent.halt_stop())
-            kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
+            traffic_manager = kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
             # orient.kill()
+            
             break
 
         my_vehicle.apply_control(agent.run_step())
 
     print(f"Trial: {trial}, Time taken: {time.time() - time_start}")
     my_vehicle.apply_control(agent.halt_stop())
-    kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
+    
+    traffic_manager = kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
+
     # orient.kill()
 
     ALL_ACTION_HISTORIES.append(agent.get_action_history())
