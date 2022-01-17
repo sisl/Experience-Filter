@@ -10,7 +10,7 @@ A_vals = (:stop, :edge, :go)
 Action_Space = create_Action_Space(A_vals)
 
 # S-Space
-S_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggresiveness, :clr_line_of_sight)
+S_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggressiveness, :clr_line_of_sight)
 vehicle_pos_vals = (:before, :at, :inside, :after)
 rival_aggsv_vals = (:cautious, :normal, :aggressive)
 binary_vals = (:yes, :no)
@@ -18,7 +18,7 @@ S_vals = [vehicle_pos_vals, vehicle_pos_vals, binary_vals, rival_aggsv_vals, bin
 State_Space = create_State_Space(S_ids, S_vals)
 
 # O-Space
-O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggresiveness, :clr_line_of_sight)
+O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggressiveness, :clr_line_of_sight)
 pos_max = length(vehicle_pos_vals)
 aggr_max = 3
 aggr_min = 1
@@ -27,7 +27,7 @@ O_ran = [range(1, pos_max, step=binary_step), range(1, pos_max, step=binary_step
 Obs_Space = create_Obs_Space(O_ids, O_ran)
 
 # T-Func
-TF_params = (pos_stays=0.80, pos_stays_edge = 0.95, blocking_changes=0.20, aggresiveness_changes=0.00, clr_line_of_sight_changes=0.20)
+TF_params = (pos_stays=0.80, pos_stays_edge = 0.95, blocking_changes=0.20, aggressiveness_changes=0.00, clr_line_of_sight_changes=0.20)
 Trans_Func = define_Trans_Func(State_Space, Action_Space, TF_params)
 
 # Z-Func

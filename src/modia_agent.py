@@ -43,7 +43,7 @@ class MODIAAgent(object):
         self._verbose_belief_hz = 3.0    # 1/seconds
         self._actions = {1: "stop", 2: "edge", 3: "go"}
         self._positions = {"before": 1.0, "at": 2.0, "inside": 3.0, "after": 4.0}
-        self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_aggresiveness", "clr_line_of_sight")
+        self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_aggressiveness", "clr_line_of_sight")
         self._last_action = 1
         self._init_belief = init_belief
         self._State_Space = MODIA.State_Space

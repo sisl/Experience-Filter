@@ -204,12 +204,12 @@ function define_Trans_Func(State_Space::Dict, Action_Space::Dict, params::NamedT
 
                 end
 
-                # Transitions of `rival_aggresiveness`
-                if key_sp.rival_aggresiveness != key_s.rival_aggresiveness
-                    Trans_Func[val_sp, val_a, val_s] *= params.aggresiveness_changes
+                # Transitions of `rival_aggressiveness`
+                if key_sp.rival_aggressiveness != key_s.rival_aggressiveness
+                    Trans_Func[val_sp, val_a, val_s] *= params.aggressiveness_changes
 
                 else
-                    Trans_Func[val_sp, val_a, val_s] *= (1.0 - params.aggresiveness_changes) / 2.0
+                    Trans_Func[val_sp, val_a, val_s] *= (1.0 - params.aggressiveness_changes) / 2.0
 
                 end
  
@@ -349,10 +349,10 @@ function define_Obs_Func(Obs_Space::Dict, Action_Space::Dict, State_Space::Dict,
                     end
                 end
 
-                # Observations of `rival_aggresiveness`
-                st_rv_aggr, probs, rem_probs = aggr_nearest(key_o.rival_aggresiveness, params)
+                # Observations of `rival_aggressiveness`
+                st_rv_aggr, probs, rem_probs = aggr_nearest(key_o.rival_aggressiveness, params)
                 for (i,j) in zip(st_rv_aggr, probs)
-                    if key_s.rival_aggresiveness == i
+                    if key_s.rival_aggressiveness == i
                         Obs_Func[val_o, val_a, val_s] *= j
                         # @show j
                     else

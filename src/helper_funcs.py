@@ -118,11 +118,11 @@ def load_with_pkl(loadname):
         L = pickle.load(f)
     return L
 
-def load_many_with_pkl(list_of_loadnames, len_of_loadname=2):
-    result = [[] for _ in range(len_of_loadname)]   # pre-allocation
+def load_many_with_pkl(list_of_loadnames, len_of_each_loadname=2):
+    result = [[] for _ in range(len_of_each_loadname)]   # pre-allocation
 
     for loadname in list_of_loadnames:
         L = load_with_pkl(loadname)
-        for idx in range(len_of_loadname):
+        for idx in range(len_of_each_loadname):
             result[idx].extend(L[idx])
     return result

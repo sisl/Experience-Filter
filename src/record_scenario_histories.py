@@ -19,7 +19,7 @@ class TrainArguments:
     num_of_trials = 101
     timeout_duration = 30.0
     spawn_radius = 100.0
-    pkl_frequency = 5
+    pkl_frequency = 1
     orient_spectator = False
     verbose_belief = False
     env_observability_settings = {"low": False, "high": True}
@@ -80,6 +80,8 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
 
             for trial in tqdm(range(train_args.num_of_trials), desc="Trial running"):
 
+                # TODO: Add skip if trial pkl already exists in dir, and `pkl_frequency` == 1
+
                 # Orient the spectator w.r.t. `my_vehicle.id`
                 if train_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
 
@@ -115,5 +117,9 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
                 ALL_ACTION_HISTORIES.append(agent.get_action_history())
                 ALL_OBSERVATION_HISTORIES.append(agent.get_observation_history())
 
-                if PKL_SAVENAME and (trial % train_args.pkl_frequency == 0):
+                if train_args.pkl_frequency == 1:
+                    data = [[agent.get_action_history()], [agent.get_observation_history()]]   # saves trials individually
+                    save_with_pkl(data=data, savename=f"{PKL_SAVENAME}_trial{trial}", is_stamped=True)
+
+                elif PKL_SAVENAME and (trial % train_args.pkl_frequency == 0):
                     save_with_pkl(data=[ALL_ACTION_HISTORIES, ALL_OBSERVATION_HISTORIES], savename=f"{PKL_SAVENAME}_trial{trial}", is_stamped=True)
