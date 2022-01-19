@@ -96,10 +96,11 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
 
                 # Generate traffic
                 traffic_gen_seed = trial
-                vehicles_list, walkers_list, all_id, all_actors, traffic_manager = generate_traffic_func(ENV_AGGR, ENV_DENS, train_args.spawn_radius, my_vehicle.id, traffic_gen_seed)
+                vehicles_list, walkers_list, all_id, all_actors, traffic_manager, _ = generate_traffic_func(ENV_AGGR, ENV_DENS, train_args.spawn_radius, my_vehicle.id, traffic_gen_seed)
 
                 time_start = time.time()
                 while time.time() - time_start < train_args.timeout_duration:
+                    world.tick()
                     if agent.done():
                         print("Target destination has been reached. Stopping vehicle.")
                         my_vehicle.apply_control(agent.halt_stop())
