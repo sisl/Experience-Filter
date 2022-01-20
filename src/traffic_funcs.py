@@ -181,18 +181,6 @@ def generate_traffic_func(scenario=0, number_of_vehicles=0, spawn_radius=100.0, 
         traffic_manager.set_hybrid_physics_mode(True)
         traffic_manager.set_hybrid_physics_radius(70.0)
 
-    '''
-    init_settings = world.get_settings()
-    settings = world.get_settings()
-    settings.synchronous_mode = True
-    settings.fixed_delta_seconds = 0.05
-    world.apply_settings(settings)
-    traffic_manager.set_synchronous_mode(True)
-    print('h')    
-    traffic_manager.set_random_device_seed(seed)
-    print('i')  '''
-
-
     
     settings = world.get_settings()
     if not args.asynch:

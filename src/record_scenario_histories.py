@@ -61,7 +61,7 @@ topology = map.get_topology()
 [waypoint_start, waypoint_end] = generate_scenario_midpoint(topology, map, road_seed)
 
 # Create ego vehicle
-vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=1.0) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
+vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=waypoint_start.location.y, z=0.1) , carla.Rotation(pitch=0.000000, yaw=waypoint_start.rotation.yaw, roll=0.000000)) 
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
