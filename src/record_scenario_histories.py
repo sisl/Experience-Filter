@@ -21,6 +21,7 @@ class TrainArguments:
     spawn_radius = 100.0
     pkl_frequency = 1
     orient_spectator = False
+
     verbose_belief = False
     env_observability_settings = {"low": False, "high": True}
     env_density_settings = {"low": 5, "med": 15, "high": 40}
