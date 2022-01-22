@@ -10,33 +10,32 @@ A_vals = (:stop, :edge, :go)
 Action_Space = create_Action_Space(A_vals)
 
 # S-Space
-S_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggresiveness)
+S_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggressiveness, :clr_line_of_sight)
 vehicle_pos_vals = (:before, :at, :inside, :after)
-binary_vals = (:yes, :no)
 rival_aggsv_vals = (:cautious, :normal, :aggressive)
-S_vals = [vehicle_pos_vals, vehicle_pos_vals, binary_vals, rival_aggsv_vals]
+binary_vals = (:yes, :no)
+S_vals = [vehicle_pos_vals, vehicle_pos_vals, binary_vals, rival_aggsv_vals, binary_vals]
 State_Space = create_State_Space(S_ids, S_vals)
 
 # O-Space
-O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_vel)
+O_ids = (:ego_pos, :rival_pos, :rival_blocking, :rival_aggressiveness, :clr_line_of_sight)
 pos_max = length(vehicle_pos_vals)
-pos_increment = 1
-vel_min = 1
-vel_max = 3
-vel_increment = 1
-O_ran = [range(1, pos_max, step=pos_increment), range(1, pos_max, step=pos_increment), range(1, 2, step=pos_increment), range(vel_min, vel_max, step=vel_increment)]
+aggr_max = 3
+aggr_min = 1
+binary_step = 1
+O_ran = [range(1, pos_max, step=binary_step), range(1, pos_max, step=binary_step), range(1, 2, step=binary_step), range(aggr_min, aggr_max, step=binary_step), range(1, 2, step=binary_step)]
 Obs_Space = create_Obs_Space(O_ids, O_ran)
 
 # T-Func
-TF_params = (pos_stays=0.80, pos_stays_edge = 0.97, blocking_changes=0.20, aggresiveness_changes=0.00, aggresiveness_stays=0.70)
+TF_params = (pos_stays=0.80, pos_stays_edge = 0.95, blocking_changes=0.20, aggressiveness_changes=0.00, clr_line_of_sight_changes=0.20)
 Trans_Func = define_Trans_Func(State_Space, Action_Space, TF_params)
 
 # Z-Func
-OF_params = (pos_guess = 0.99, blocking_guess = 0.99, aggr_guess = 0.99)    # TODO: This is fully observable. Change this.
+OF_params = (pos_guess = 0.75, blocking_guess = 0.90, aggr_guess = 0.55, clr_line_of_sight_guess = 0.55)    # TODO: [DONE!] This is fully observable, change this.
 Obs_Func = define_Obs_Func(Obs_Space, Action_Space, State_Space, OF_params)
 
 # R-Func
-RF_params = (final_reward = 2500, crash_reward = -10000, taken_over_reward = -1000)
+RF_params = (final_reward = +3000, crash_reward = -20000, taken_over_reward = -100, clearing_sight_at_stop = +50)
 Reward_Func = define_Reward_Func(State_Space, Action_Space, RF_params)
 
 StopUncontrolledDP = StopUncontrolled(Action_Space,

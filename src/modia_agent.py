@@ -20,7 +20,7 @@ class MODIAAgent(object):
     MODIAAgent creates multiple decision components from pre-solved decision problems.
     """
 
-    def __init__(self, vehicle, init_belief, StopUncontrolledDP, verbose_belief=False, opt_dict={}):
+    def __init__(self, vehicle, init_belief, StopUncontrolledDP, verbose_belief=False, env_observable=True, opt_dict={}):
         """
         Initialization the agent paramters, the local and the global planner.
 
@@ -38,11 +38,12 @@ class MODIAAgent(object):
 
         # Params for MODIA
         self.verbose_belief = verbose_belief
+        self.env_observable = env_observable
         self._verbose_last_time = time.time()
         self._verbose_belief_hz = 3.0    # 1/seconds
         self._actions = {1: "stop", 2: "edge", 3: "go"}
         self._positions = {"before": 1.0, "at": 2.0, "inside": 3.0, "after": 4.0}
-        self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_vel")
+        self._observing = ("ego_pos", "rival_pos", "rival_blocking", "rival_aggressiveness", "clr_line_of_sight")
         self._last_action = 1
         self._init_belief = init_belief
         self._State_Space = MODIA.State_Space
@@ -93,6 +94,7 @@ class MODIAAgent(object):
 
         self._rival_blocking = {True: 1.0, False: 2.0}
         self._aggsv_vals = {"cautious": 1.0, "normal": 2.0, "aggressive": 3.0}
+        self._clear_sight = {True: 1.0, False: 2.0}
         self._cautious_threshold = 15.0   # m/s
         self._aggressive_threshold = 30.0   # m/s
 
@@ -419,6 +421,9 @@ class MODIAAgent(object):
 
         ## RIVAL VEHICLE ##
         else:
+            if self._is_in_junction(vehicle_tf):
+                return "inside"
+            
             stop_sign_yaw = stop_sign.get_transform().rotation.yaw
             vehicle_yaw = vehicle_tf.rotation.yaw
             yaw_diff = stop_sign_yaw - vehicle_yaw
@@ -496,6 +501,15 @@ class MODIAAgent(object):
 
             else:
                 obs.append(self._aggsv_vals["normal"])
+
+            # Get clearness of line of sight
+            if self.env_observable:
+                obs.append(self._clear_sight[True])
+            elif self._last_action == 2:  #:edge
+                obs.append(self._clear_sight[True])
+            else:
+                obs.append(self._clear_sight[False])
+
 
             observations[rv_id] = (*obs, )    # unpack list into tuple
 
