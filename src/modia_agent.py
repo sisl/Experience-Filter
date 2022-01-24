@@ -104,6 +104,11 @@ class MODIAAgent(object):
         self._edge_stop_duration = 0.5   # seconds
         self._edge_go_duration = 0.5   # seconds
 
+        # Scoring parameters
+        self.min_distance_to_any_rival = 999999
+        self.velocity_history = []
+        self.time_history = []
+
         # Base parameters
         self._ignore_traffic_lights = True
         self._ignore_vehicles = False
@@ -363,11 +368,9 @@ class MODIAAgent(object):
 
     def _deadlocked(self):
         """Check if the scenario is deadlocked."""
-        # print(f"Vehicle speed in m/s: {get_speed(self._vehicle)}")
         if get_speed(self._vehicle) < 0.1:
             if not self._deadlock_countdown:
                 self._deadlock_countdown = time.time()
-            # print(f"Time spent in deadlock: {time.time() - self._deadlock_countdown}")
         else:
             self._deadlock_countdown = None
 
@@ -510,6 +513,9 @@ class MODIAAgent(object):
             else:
                 obs.append(self._clear_sight[False])
 
+            # Update min distance between ego and rival
+            self.min_distance_to_any_rival = min(self.min_distance_to_any_rival, distance_among_actors(rival, self._vehicle))
+
 
             observations[rv_id] = (*obs, )    # unpack list into tuple
 
@@ -529,6 +535,8 @@ class MODIAAgent(object):
         """Record histories during the episode."""
         self.action_history.append(a_idx)
         self.observation_history.append(o_idx)
+        self.velocity_history.append(self.vehicle_speed)
+        self.time_history.append(time.time())
 
     def _reset_histories(self):
         """Reset the history records. Typically executed when a new destination is set."""
@@ -695,24 +703,32 @@ class MODIAAgent(object):
         return (False, None)
 
     def _get_ego_bounding_box(self, max_distance):
-        """Compute the bounding box for the ego vehicle w.r.t. a max distance."""
+        """
+        Compute the bounding box for the ego vehicle w.r.t. a max distance.
+        Bounding box definition:
+         y-axis
+           ▲
+
+           A
+           /\
+        F /  \E
+         /  O \ B     ► x-axis
+        C\    /
+          \  /
+           \/
+           D
+        """
+
         ego_transform = self._vehicle.get_transform()
         ego_box_angle = np.deg2rad(ego_transform.rotation.yaw)
-        ego_box_O = ego_transform.location
-        ego_box_E = carla.Location(x=max_distance * np.cos(ego_box_angle), y=max_distance * np.sin(ego_box_angle))
-        ego_box_F = carla.Location(x=1.0 * np.cos(np.pi/2 + ego_box_angle), y=1.0 * np.sin(np.pi/2 + ego_box_angle))
-        ego_box_A = ego_box_O + ego_box_E - ego_box_F
-        ego_box_B = ego_box_O + ego_box_E + ego_box_F
-        ego_box_C = ego_box_O - ego_box_F
-        ego_box_D = ego_box_O + ego_box_F
+        ego_box_O = ego_transform.location    # centroid 
+        ego_box_E = carla.Location(x=max_distance * np.cos(ego_box_angle), y=max_distance * np.sin(ego_box_angle))    # mid of A and B
+        ego_box_F = carla.Location(x=1.0 * np.cos(np.pi/2 + ego_box_angle), y=1.0 * np.sin(np.pi/2 + ego_box_angle))    # mid of A and C
+        ego_box_A = ego_box_O + ego_box_E - ego_box_F    # upper-left corner
+        ego_box_B = ego_box_O + ego_box_E + ego_box_F    # upper-right corner
+        ego_box_C = ego_box_O - ego_box_F    # lower-left corner
+        ego_box_D = ego_box_O + ego_box_F    # lower-right corner
 
-        # print(f"O: {ego_box_O}")
-        # print(f"E: {ego_box_E}")
-        # print(f"F: {ego_box_F}")
-        # print(f"A: {ego_box_A}")
-        # print(f"B: {ego_box_B}")
-        # print(f"C: {ego_box_C}")
-        # print(f"D: {ego_box_D}")
         return (ego_box_A, ego_box_B, ego_box_C, ego_box_D)
 
     def _vehicle_obstacle_detected(self, vehicle_list=None, max_distance=None):

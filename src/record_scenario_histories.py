@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import carla
 import sys, importlib, os
 import numpy as np

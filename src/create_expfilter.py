@@ -1,5 +1,4 @@
 import sys, os
-
 from helper_funcs import *
 from ExperienceFilter import ExperienceFilter
 import numpy as np
@@ -55,11 +54,3 @@ EF = ExperienceFilter(data=filter_data, axeslabels=filter_args.axeslabels)
 
 new_point = (0.5, 10, 3)
 T = EF.apply_filter(new_point=new_point)
-
-StopUncontrolledDP_new = MODIA.StopUncontrolled(StopUncontrolledDP.Action_Space,
-                                                StopUncontrolledDP.State_Space,
-                                                StopUncontrolledDP.Obs_Space,
-                                                T,
-                                                StopUncontrolledDP.Obs_Func,
-                                                StopUncontrolledDP.Reward_Func)
-

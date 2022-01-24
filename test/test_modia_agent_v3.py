@@ -58,7 +58,6 @@ vehicle_init_tf = carla.Transform(carla.Location(x=waypoint_start.location.x, y=
 
 # Spawn Ego vehicle
 # vehicle_init_tf = carla.Transform(carla.Location(x=334.186920, y=299.277069, z=1.0), carla.Rotation(pitch=0.000000, yaw=90.000000, roll=0.000000)) 
-client.reload_world()
 my_vehicle_tf = vehicle_init_tf
 my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
@@ -86,7 +85,8 @@ agent.set_destination(waypoint_end.location)
 scenario = PresetScenarios.NORMAL
 number_of_vehicles = 30
 spawn_radius = 100.0
-vehicles_list, walkers_list, all_id, all_actors, traffic_manager = generate_traffic_func(scenario, number_of_vehicles, spawn_radius, my_vehicle.id, random_seed)
+traffic_gen_seed = 123
+vehicles_list, walkers_list, all_id, all_actors, traffic_manager, _ = generate_traffic_func(scenario, number_of_vehicles, spawn_radius, my_vehicle.id, traffic_gen_seed)
 
 time_start = time.time()
 while time.time() - time_start < 30.0:
