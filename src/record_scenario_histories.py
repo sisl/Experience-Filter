@@ -6,6 +6,7 @@ import subprocess
 import time 
 import pickle
 from tqdm import tqdm
+import glob
 
 from helper_funcs import *
 from traffic_funcs import ScenarioParams, PresetScenarios, generate_scenario_midpoint, generate_traffic_func, kill_traffic
@@ -67,7 +68,6 @@ my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 print(f"My vehicle ID: {my_vehicle.id}")
 
-
 for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc="Env Observability"):
     for (key2, ENV_DENS) in tqdm(train_args.env_density_settings.items(), desc="Env Density"):
         for (key3, ENV_AGGR) in tqdm(train_args.env_aggressiveness_settings.items(), desc="Env Aggressiveness"):
@@ -81,7 +81,10 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
             for trial in tqdm(range(train_args.num_of_trials), desc="Trial running"):
 
                 # TODO: Add skip if trial pkl already exists in dir, and `pkl_frequency` == 1
-
+                matching_files_in_cd = glob.glob(f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}_trial{trial}*.pkl")
+                if (len(matching_files_in_cd)!=0):
+                    continue
+                             
                 # Orient the spectator w.r.t. `my_vehicle.id`
                 if train_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
 
