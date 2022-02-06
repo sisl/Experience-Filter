@@ -536,7 +536,7 @@ class MODIAAgent(object):
         self.action_history.append(a_idx)
         self.observation_history.append(o_idx)
         self.velocity_history.append(self.vehicle_speed)
-        self.time_history.append(time.time())
+        self.time_history.append(self._world.get_snapshot().timestamp.elapsed_seconds)
 
     def _reset_histories(self):
         """Reset the history records. Typically executed when a new destination is set."""

@@ -1,5 +1,6 @@
 import sys, os
 from helper_funcs import *
+sys.path.append('../src/')
 from ExperienceFilter import ExperienceFilter
 import numpy as np
 from glob import glob
@@ -19,11 +20,14 @@ if connect_julia_api:
 
 class FilterArguments:
     axeslabels = ("Observability", "Density", "Aggressiveness")
-    env_observability_settings = {"low": 0}    # , "high": 1}
+    env_observability_settings = {"low": 0 , "high": 1}
     env_density_settings = {"low": 5, "med": 15, "high": 40}
     env_aggressiveness_settings = {"cautious": 1, "normal": 2, "aggressive": 3}
-    rel_path_to_pkls = "./dev_train/"
-    prior_scenario_count = 200
+
+    working_dir = os.getcwd()
+    rel_path_to_pkls = "./dev_train_v2/"
+    prior_scenario_count = 2000
+    plot_policy_maps = False    # if True, you need to enable `plot_funcs.jl` in MODIA.jl.
 
 filter_args = FilterArguments()
 filter_data = dict()
@@ -39,18 +43,19 @@ for (key1, ENV_OBSV) in tqdm(filter_args.env_observability_settings.items(), des
             key = (filter_args.env_observability_settings[key1], filter_args.env_density_settings[key2], filter_args.env_aggressiveness_settings[key3])
             val = MODIA.learn_from_data(L[0], L[1], MODIA.StopUncontrolledDP, prior_scenario_count=filter_args.prior_scenario_count)
             filter_data[key] = val
+            
+            if filter_args.plot_policy_maps:
+                StopUncontrolledDP_new = MODIA.StopUncontrolled(StopUncontrolledDP.Action_Space,
+                                                    StopUncontrolledDP.State_Space,
+                                                    StopUncontrolledDP.Obs_Space,
+                                                    val,
+                                                    StopUncontrolledDP.Obs_Func,
+                                                    StopUncontrolledDP.Reward_Func)
 
-            StopUncontrolledDP_new = MODIA.StopUncontrolled(StopUncontrolledDP.Action_Space,
-                                                StopUncontrolledDP.State_Space,
-                                                StopUncontrolledDP.Obs_Space,
-                                                val,
-                                                StopUncontrolledDP.Obs_Func,
-                                                StopUncontrolledDP.Reward_Func)
+                plt = MODIA.get_policy_map(StopUncontrolledDP_new, rival_aggressiveness=key3); Plots.savefig(plt, f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}.png")
 
-            plt = MODIA.get_policy_map(StopUncontrolledDP_new, rival_aggressiveness=key3); Plots.savefig(plt, f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}.png")
-
+os.chdir(filter_args.working_dir)
 EF = ExperienceFilter(data=filter_data, axeslabels=filter_args.axeslabels)
-
 
 new_point = (0.5, 10, 3)
 T = EF.apply_filter(new_point=new_point)

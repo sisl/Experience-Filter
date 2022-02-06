@@ -10,6 +10,9 @@ def printl(L, log_name=""):
         print(idx, item)
     return
 
+def reverse_dict(D):
+    return {v:k for (k,v) in D.items()}
+
 def vector3D_norm(vec: carla.Vector3D) -> float:
     """Returns the norm/magnitude (a scalar) of the given carla.3D vector."""
     return np.linalg.norm(np.array([vec.x, vec.y, vec.z])) 
@@ -103,6 +106,10 @@ def is_ahead_of_reference(query_actor, reference_actor):
         return query_actor.get_location().x < reference_actor.get_location().x
 
 def save_with_pkl(data, savename, is_stamped):
+    """
+    Save data with pkl.
+    Setting `is_stamaped` to True will append a timestamp to `savename`.
+    """
     if is_stamped:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         filename = f"{savename}_{timestamp}.pkl"
@@ -114,15 +121,39 @@ def save_with_pkl(data, savename, is_stamped):
     return
 
 def load_with_pkl(loadname):
+    """Load a single pkl."""
     with open(loadname, 'rb') as f:
         L = pickle.load(f)
     return L
 
 def load_many_with_pkl(list_of_loadnames, len_of_each_loadname=2):
+    """Load many files with pkl."""
     result = [[] for _ in range(len_of_each_loadname)]   # pre-allocation
 
     for loadname in list_of_loadnames:
         L = load_with_pkl(loadname)
         for idx in range(len_of_each_loadname):
             result[idx].extend(L[idx])
+    print(f"## INFO: Loaded {len(list_of_loadnames)} pkl files")
     return result
+
+def get_scenario_score(agent, score_args):
+    """Get the score of a completed scenario."""
+    vel_hist, time_hist = agent.velocity_history, agent.time_history
+    safety_val = agent.min_distance_to_any_rival
+
+    def get_acceleration(vel_hist, time_hist):
+        v, t = np.array(vel_hist), np.array(time_hist)
+        dv = v[:-1] - v[1:]
+        dt = t[:-1] - t[1:]
+        return dv / dt
+
+    def get_time_taken(time_hist):
+        return time_hist[-1] - time_hist[0]
+
+    comfort_val = np.sum(np.abs(get_acceleration(vel_hist, time_hist)))
+    time_val = get_time_taken(time_hist)
+
+    score = score_args.safety * safety_val + score_args.comfort * comfort_val + score_args.time * time_val
+    contributors = {"safety":safety_val, "comfort":comfort_val, "time":time_val}
+    return score, contributors
