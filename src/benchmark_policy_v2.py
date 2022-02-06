@@ -8,7 +8,6 @@ import pickle
 from tqdm import tqdm
 
 from helper_funcs import *
-from expfilter_helper_funcs import *
 from traffic_funcs import ScenarioParams, PresetScenarios, generate_scenario_midpoint, generate_traffic_func, kill_traffic
 
 # Add Carla PythonAPI scripts to path
@@ -26,6 +25,9 @@ class TestArguments:
     methods = ["self", "inv_distance", "nearest"]
     env_aggressiveness_levels = {0: PresetScenarios.CAUTIOUS, 1: PresetScenarios.NORMAL, 2: PresetScenarios.AGGRESSIVE} 
 
+    training_effort = list(range(3, 19, 3))   # 3, 6, ..., 18
+
+
 # Args for Experince Filter
 class FilterArguments:
     axeslabels = ("Observability", "Density", "Aggressiveness")
@@ -38,16 +40,16 @@ class FilterArguments:
     prior_scenario_count = 2000
     plot_policy_maps = False    # if True, you need to enable `plot_funcs.jl` in MODIA.jl.
 
-# Args for scoring
-class ScoreArguments:
-    safety  = +2.0    # higher is better
-    comfort = -3.0    # lower is better
-    time    = -2.0    # lower is better
+# # Args for scoring
+# class ScoreArguments:
+#     safety  = +2.0    # higher is better
+#     comfort = -3.0    # lower is better
+#     time    = -2.0    # lower is better
 
 # Create Carla client and world
 test_args = TestArguments()
-score_args = ScoreArguments()
 filter_args = FilterArguments()
+# score_args = ScoreArguments()
 client = carla.Client('localhost', 2000)
 client.set_timeout(20.0)
 world = client.load_world("Town01_Opt")
@@ -87,60 +89,25 @@ my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 print(f"My vehicle ID: {my_vehicle.id}")
 
-# Get Experience Filter data
+# Import Experience Filter
 from ExperienceFilter import *
-filter_data = get_filter_data(filter_args)
+from expfilter_helper_funcs import *
 
-SCORE_RECORDS = dict()
 
-for method in test_args.methods:
-    if method == "self":
-        EF = ExperienceFilter(data=filter_data, axeslabels=filter_args.axeslabels)
-        T = EF.apply_filter(new_point=test_args.datapoint_to_benchmark)
-        StopUncontrolledDP_new = create_DP_from_Trans_func(T)
-    else:
-        EF.remove_datapoint(test_args.datapoint_to_benchmark)
-        T = EF.apply_filter(new_point=test_args.datapoint_to_benchmark, weighting=method)
-        StopUncontrolledDP_new = create_DP_from_Trans_func(T)
 
-    for trial in tqdm(range(test_args.num_of_trials), desc="Trial running"):
+# TODO
+# for tef in test_args.training_effort:
+#     covpts = get_coverage_points(filter_data.keys(), tef)
+#     filter_data = get_filter_data_subset(filter_args, covpts)
+    
+#     # Trained with all data
 
-        ENV_OBSV, ENV_DENS, ENV_AGGR = test_args.datapoint_to_benchmark
-        ENV_AGGR = test_args.env_aggressiveness_levels[ENV_AGGR]
+#     # Trained (self)
+#     EF_self = ExperienceFilter(data=filter_data, axeslabels=filter_args.axeslabels)
+#     T = EF_self.apply_filter(new_point=test_args.datapoint_to_benchmark)
+#     StopUncontrolledDP_new = create_DP_from_Trans_func(T)
 
-        # Orient the spectator w.r.t. `my_vehicle.id`
-        if test_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
+#     # Experince Filter
 
-        # Reset back to init tf
-        my_vehicle.set_transform(vehicle_init_tf)
-        time.sleep(1)
 
-        # Start an agent
-        init_belief = uniform_belief(StopUncontrolledDP_new.Pomdp)
-        agent = MODIAAgent(my_vehicle, init_belief, StopUncontrolledDP_new, verbose_belief=test_args.verbose_belief, env_observable=ENV_OBSV)
-        agent.set_destination(waypoint_end.location)
-
-        # Generate traffic
-        traffic_gen_seed = trial
-        vehicles_list, walkers_list, all_id, all_actors, traffic_manager, _ = generate_traffic_func(ENV_AGGR, ENV_DENS, test_args.spawn_radius, my_vehicle.id, traffic_gen_seed)
-
-        time_start = time.time()
-        while time.time() - time_start < test_args.timeout_duration:
-            world.tick()
-            if agent.done():
-                print("Target destination has been reached. Stopping vehicle.")
-                my_vehicle.apply_control(agent.halt_stop())
-                kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
-                if test_args.orient_spectator: orient.kill()
-                break
-
-            my_vehicle.apply_control(agent.run_step())
-
-        print(f"Trial: {trial}, Time taken: {time.time() - time_start}")
-        my_vehicle.apply_control(agent.halt_stop())
-        kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
-        if test_args.orient_spectator: orient.kill()
-
-        # Record the score of the scenario 
-        SCORE_RECORDS[(method, trial)] = get_scenario_score(agent, score_args)[1]
-
+#     # Nearest neighbor

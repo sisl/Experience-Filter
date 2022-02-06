@@ -2,6 +2,8 @@ import carla
 import numpy as np
 import time
 import pickle
+import csv
+from diversipy import psa_select
 
 def printl(L, log_name=""):
     """Print elements of an iterable object. Useful for objects like L = <carla.libcarla.ActorList>."""
@@ -137,6 +139,21 @@ def load_many_with_pkl(list_of_loadnames, len_of_each_loadname=2):
     print(f"## INFO: Loaded {len(list_of_loadnames)} pkl files")
     return result
 
+def log_to_file(row_data_list, filename):
+    """Dump data into a readable file."""
+    with open(filename, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(row_data_list)
+
+def read_log_from_file(filename):
+    """Load data from a readable file."""
+    rows = []
+    with open(filename) as f:
+        csvreader = csv.reader(f)
+        for row in csvreader:
+            rows.append(row)
+    return rows
+
 def get_scenario_score(agent, score_args):
     """Get the score of a completed scenario."""
     vel_hist, time_hist = agent.velocity_history, agent.time_history
@@ -157,3 +174,6 @@ def get_scenario_score(agent, score_args):
     score = score_args.safety * safety_val + score_args.comfort * comfort_val + score_args.time * time_val
     contributors = {"safety":safety_val, "comfort":comfort_val, "time":time_val}
     return score, contributors
+
+def get_coverage_points(datapoints, tef):
+    return psa_select(datapoints, tef)

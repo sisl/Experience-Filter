@@ -80,9 +80,9 @@ for (key1, ENV_OBSV) in tqdm(train_args.env_observability_settings.items(), desc
 
             for trial in tqdm(range(train_args.num_of_trials), desc="Trial running"):
 
-                # TODO: Add skip if trial pkl already exists in dir, and `pkl_frequency` == 1
+                # Skips if trial pkl already exists in dir, and `pkl_frequency` == 1
                 matching_files_in_cd = glob.glob(f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}_trial{trial}*.pkl")
-                if (len(matching_files_in_cd)!=0):
+                if len(matching_files_in_cd) != 0 and train_args.pkl_frequency == 1:
                     continue
                              
                 # Orient the spectator w.r.t. `my_vehicle.id`
