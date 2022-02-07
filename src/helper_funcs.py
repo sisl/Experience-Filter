@@ -186,4 +186,22 @@ def get_scenario_score(agent, score_args=None):
         return score, contributors
 
 def get_coverage_points(datapoints, tef):
+    """Select best `tef` number of elements in `datapoints` that provide best coverage throughout the hypercube."""
     return diversipy.psa_select(datapoints, tef)
+
+def can_be_float(element):
+    """
+    Check if `element` can be a float or not.
+    Useful during broadcasting to check whether strings can be parsed as floats.
+    """
+    try:
+        float(element)
+        return True
+    except ValueError:
+        return False
+
+def normalize_from_0_to_1(x, min_val=None, max_val=None):
+    """Normalize a np.array between 0 and 1."""
+    if not min_val: min_val = np.min(x)
+    if not max_val: max_val = np.max(x)
+    return (x - min_val) / (max_val - min_val)
