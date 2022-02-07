@@ -37,7 +37,6 @@ class ExperienceFilter:
 
     def apply_filter(self, new_point, weighting="inv_distance"):
         weights = self._get_datapoint_weights(new_point, weighting)
-        print(weights)
         new_value = np.average(self.datavalues, axis=0, weights=weights)
         return new_value
 
@@ -54,12 +53,6 @@ class ExperienceFilter:
     def _to_tuples(self, L):
         return [tuple(x) for x in L]
 
-    def _get_nearest_neighbor(self, dtpts, point):
-        distances = np.array(dtpts) - np.tile(point, (len(dtpts), 1))
-        idx = np.argmin(np.linalg.norm(distances, axis=1))
-        val = dtpts[idx]
-        return idx, val
-
     def _get_datapoint_weights(self, new_point, weighting):
         if self.normalize_axes:
             dtpts = self.datapoints_normalized
@@ -67,7 +60,7 @@ class ExperienceFilter:
             dtpts = self.datapoints
 
         if weighting == "nearest":
-            idx, _ = self._get_nearest_neighbor(dtpts, new_point)
+            idx, _ = get_nearest_neighbor(dtpts, new_point)
             weights = np.zeros(len(dtpts))
             weights[idx] = 1.0
             return weights

@@ -41,7 +41,7 @@ class FilterArguments:
 # Args for scoring
 class ScoreArguments:
     safety  = +2.0    # higher is better
-    comfort = -3.0    # lower is better
+    discomfort = -3.0    # lower is better
     time    = -2.0    # lower is better
 
 # Create Carla client and world

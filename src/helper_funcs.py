@@ -3,7 +3,7 @@ import numpy as np
 import time
 import pickle
 import csv
-from diversipy import psa_select
+import diversipy
 
 def printl(L, log_name=""):
     """Print elements of an iterable object. Useful for objects like L = <carla.libcarla.ActorList>."""
@@ -82,6 +82,13 @@ def angle_is_approx(query_angle, target_angle, target_delta=45):
     """Retuns true if `query_angle` is approximately equal to `target_angle`, with a permitted deviation of `delta_target`."""
     return target_angle - target_delta < query_angle < target_angle + target_delta
 
+def get_nearest_neighbor(datapoints_list, point):
+    """Get the nearest element in `datapoints_list` to `point`."""
+    distances = np.array(datapoints_list) - np.tile(point, (len(datapoints_list), 1))
+    idx = np.argmin(np.linalg.norm(distances, axis=1))
+    val = datapoints_list[idx]
+    return idx, val
+
 def is_ahead_of_reference(query_actor, reference_actor):
     """
     Returns True if `query_actor` is ahead of `reference_actor`, w.r.t. the direction `query_actor` is pointing.
@@ -139,7 +146,7 @@ def load_many_with_pkl(list_of_loadnames, len_of_each_loadname=2):
     print(f"## INFO: Loaded {len(list_of_loadnames)} pkl files")
     return result
 
-def log_to_file(row_data_list, filename):
+def log_to_file(filename, row_data_list):
     """Dump data into a readable file."""
     with open(filename, 'a', newline='') as f:
         writer = csv.writer(f)
@@ -152,9 +159,9 @@ def read_log_from_file(filename):
         csvreader = csv.reader(f)
         for row in csvreader:
             rows.append(row)
-    return rows
+    return np.array(rows)
 
-def get_scenario_score(agent, score_args):
+def get_scenario_score(agent, score_args=None):
     """Get the score of a completed scenario."""
     vel_hist, time_hist = agent.velocity_history, agent.time_history
     safety_val = agent.min_distance_to_any_rival
@@ -168,12 +175,15 @@ def get_scenario_score(agent, score_args):
     def get_time_taken(time_hist):
         return time_hist[-1] - time_hist[0]
 
-    comfort_val = np.sum(np.abs(get_acceleration(vel_hist, time_hist)))
+    discomfort_val = np.sum(np.abs(get_acceleration(vel_hist, time_hist)))
     time_val = get_time_taken(time_hist)
 
-    score = score_args.safety * safety_val + score_args.comfort * comfort_val + score_args.time * time_val
-    contributors = {"safety":safety_val, "comfort":comfort_val, "time":time_val}
-    return score, contributors
+    contributors = {'safety':safety_val, 'discomfort':discomfort_val, 'time':time_val}
+    if not score_args:
+        return contributors
+    else:
+        score = score_args.safety * safety_val + score_args.discomfort * discomfort_val + score_args.time * time_val
+        return score, contributors
 
 def get_coverage_points(datapoints, tef):
-    return psa_select(datapoints, tef)
+    return diversipy.psa_select(datapoints, tef)

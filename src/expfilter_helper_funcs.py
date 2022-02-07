@@ -6,7 +6,6 @@ from helper_funcs import *
 # You must have connected to julia.api in the main script for the imports below to work!
 from julia import MODIA
 from julia import Base as jlBase
-from julia import Plots
 
 def get_filter_data(filter_args):
     filter_data = dict()
@@ -24,11 +23,28 @@ def get_filter_data(filter_args):
                 filter_data[key] = val
                 
                 if filter_args.plot_policy_maps:
+                    from julia import Plots
                     StopUncontrolledDP_new = create_DP_from_Trans_func(val)
                     plt = MODIA.get_policy_map(StopUncontrolledDP_new, rival_aggressiveness=key3); Plots.savefig(plt, f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}.png")
 
     os.chdir(filter_args.working_dir)
     return filter_data
+
+
+def learn_all_data(filter_args):
+    os.chdir(filter_args.rel_path_to_pkls)
+    list_of_loadnames = glob(f"*.pkl")
+    L = load_many_with_pkl(list_of_loadnames)
+
+    T = MODIA.learn_from_data(L[0], L[1], MODIA.StopUncontrolledDP, prior_scenario_count=filter_args.prior_scenario_count)
+    
+    if filter_args.plot_policy_maps:
+        from julia import Plots
+        StopUncontrolledDP_new = create_DP_from_Trans_func(T)
+        plt = MODIA.get_policy_map(StopUncontrolledDP_new, rival_aggressiveness="N/A"); Plots.savefig(plt, f"All.png")
+
+    os.chdir(filter_args.working_dir)
+    return T
 
 def create_DP_from_Trans_func(T):
     return MODIA.StopUncontrolled(MODIA.StopUncontrolledDP.Action_Space,
