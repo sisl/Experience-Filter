@@ -15,15 +15,16 @@ sys.path.append('./PythonAPI/carla/')
 
 # Args for testing
 class TestArguments:
-    filename = f"benchmark_dev_v3.csv"
+    filename = f"benchmark_dev_Feb13_v1.csv"
 
-    num_of_trials = 50
+    num_of_trials = 15
     timeout_duration = 30.0
     spawn_radius = 100.0
     orient_spectator = False
     verbose_belief = False
 
-    datapoint_to_benchmark = (0, 15, 3)
+    datapoint_to_benchmark = (0, 40, 2)
+    datapoint_to_benchmark_nrmz = (0, 1, 0.5)
     env_aggressiveness_levels = {1: PresetScenarios.CAUTIOUS, 2: PresetScenarios.NORMAL, 3: PresetScenarios.AGGRESSIVE} 
 
     training_effort = list(range(3, 16, 3))   # 3, 6, ..., 15
@@ -153,8 +154,13 @@ def main_running_loop(method=None):
 
 
 for tef in test_args.training_effort:
-    # Only use the subset of the recorded data, from the points that offer the maximum coverage, given their amount
-    covpts_norm = get_coverage_points(datapoints_normalized_All, tef)
+    # # Only use the subset of the recorded data, from the points that offer the maximum coverage, given their amount
+    # covpts_norm = get_coverage_points(datapoints_normalized_All, tef)
+    # covpts_indx = [datapoints_normalized_All.index(item) for item in covpts_norm]
+    # covpts = [EF_all.datapoints[i] for i in covpts_indx]
+    # filter_data_subset = {k:v for (k,v) in filter_data_All.items() if k in covpts}
+
+    covpts_norm = get_furthest_points(datapoints_normalized_All, test_args.datapoint_to_benchmark_nrmz, tef)
     covpts_indx = [datapoints_normalized_All.index(item) for item in covpts_norm]
     covpts = [EF_all.datapoints[i] for i in covpts_indx]
     filter_data_subset = {k:v for (k,v) in filter_data_All.items() if k in covpts}

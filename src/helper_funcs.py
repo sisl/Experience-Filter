@@ -189,6 +189,12 @@ def get_coverage_points(datapoints, tef):
     """Select best `tef` number of elements in `datapoints` that provide best coverage throughout the hypercube."""
     return diversipy.psa_select(datapoints, tef)
 
+def get_furthest_points(datapoints, datapoint_to_benchmark, tef):
+    """Select the furthest `tef` points in `datapoints` w.r.t. to `datapoint_to_benchmark`."""
+    distances = np.array(datapoints) - np.tile(datapoint_to_benchmark, (len(datapoints), 1))
+    idxs = np.argsort(np.linalg.norm(distances, axis=1))[-tef:]
+    return [datapoints[i] for i in idxs]
+
 def can_be_float(element):
     """
     Check if `element` can be a float or not.
