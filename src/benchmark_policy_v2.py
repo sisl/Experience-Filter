@@ -15,15 +15,16 @@ sys.path.append('./PythonAPI/carla/')
 
 # Args for testing
 class TestArguments:
-    num_of_trials = 10
+    filename = f"benchmark_dev_v3.csv"
+
+    num_of_trials = 50
     timeout_duration = 30.0
     spawn_radius = 100.0
     orient_spectator = False
     verbose_belief = False
 
-    datapoint_to_benchmark = (0, 15, 2)
-    methods = ["self", "inv_distance", "nearest"]
-    env_aggressiveness_levels = {0: PresetScenarios.CAUTIOUS, 1: PresetScenarios.NORMAL, 2: PresetScenarios.AGGRESSIVE} 
+    datapoint_to_benchmark = (0, 15, 3)
+    env_aggressiveness_levels = {1: PresetScenarios.CAUTIOUS, 2: PresetScenarios.NORMAL, 3: PresetScenarios.AGGRESSIVE} 
 
     training_effort = list(range(3, 16, 3))   # 3, 6, ..., 15
 
@@ -89,6 +90,9 @@ my_vehicle_bp = blueprint_library.find('vehicle.ford.mustang')
 my_vehicle = world.spawn_actor(my_vehicle_bp, my_vehicle_tf)
 print(f"My vehicle ID: {my_vehicle.id}")
 
+# Orient the spectator w.r.t. `my_vehicle.id`
+if test_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
+
 # Import Experience Filter
 from ExperienceFilter import *
 from expfilter_helper_funcs import *
@@ -97,22 +101,20 @@ EF_all = ExperienceFilter(data=filter_data_All, axeslabels=filter_args.axeslabel
 EF_all.remove_datapoint(test_args.datapoint_to_benchmark)
 datapoints_normalized_All = EF_all.datapoints_normalized
 
-def already_logged(filename, tef, method, trial):
-    logs = read_log_from_file(filename)
+def already_logged(tef, method, trial):
+    if not glob(test_args.filename): return False
+    logs = read_log_from_file(test_args.filename)
     logs_relevant = logs[:, 0:3]
     return [str(tef), method, str(trial)] in logs_relevant.tolist()
 
 def main_running_loop(method=None):
     for trial in tqdm(range(test_args.num_of_trials), desc=f"Method running: {method}"):
 
-        if already_logged(filename, tef, method, trial):
+        if already_logged(tef, method, trial):
             continue
 
         ENV_OBSV, ENV_DENS, ENV_AGGR = test_args.datapoint_to_benchmark
         ENV_AGGR = test_args.env_aggressiveness_levels[ENV_AGGR]
-
-        # Orient the spectator w.r.t. `my_vehicle.id`
-        if test_args.orient_spectator: orient = subprocess.Popen(['./nodes/orient_spectator.py', '-a', str(my_vehicle.id)])
 
         # Reset back to init tf
         my_vehicle.set_transform(vehicle_init_tf)
@@ -134,7 +136,6 @@ def main_running_loop(method=None):
                 print("Target destination has been reached. Stopping vehicle.")
                 my_vehicle.apply_control(agent.halt_stop())
                 kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
-                if test_args.orient_spectator: orient.kill()
                 break
 
             my_vehicle.apply_control(agent.run_step())
@@ -142,21 +143,16 @@ def main_running_loop(method=None):
         print(f"Trial: {trial}, Time taken: {time.time() - time_start}")
         my_vehicle.apply_control(agent.halt_stop())
         kill_traffic(vehicles_list, walkers_list, all_id, all_actors, traffic_manager)
-        if test_args.orient_spectator: orient.kill()
 
         # Record the score of the scenario 
         score = get_scenario_score(agent)
         scenario_log = [tef, method, trial, score['safety'], score['discomfort'], score['time']]
-        log_to_file(filename, scenario_log)
+        log_to_file(test_args.filename, scenario_log)
     return
 
 
 
 for tef in test_args.training_effort:
-    # Determine name of log file
-    # timestamp = time.strftime("%Y%m%d-%H%M%S")
-    filename = f"benchmark_v2.csv"
-
     # Only use the subset of the recorded data, from the points that offer the maximum coverage, given their amount
     covpts_norm = get_coverage_points(datapoints_normalized_All, tef)
     covpts_indx = [datapoints_normalized_All.index(item) for item in covpts_norm]
@@ -186,3 +182,4 @@ for tef in test_args.training_effort:
     StopUncontrolledDP_new = create_DP_from_Trans_func(T_nn)
     main_running_loop(method="nn")
 
+    if test_args.orient_spectator: orient.kill()

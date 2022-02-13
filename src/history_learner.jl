@@ -7,7 +7,7 @@ using JLD
 
     Caution: When you pass in a list of lists through Python, it becomes a Matrix in Julia!
 """
-function learn_from_data(array_of_act_histories::AbstractArray, array_of_obs_histories::AbstractArray, StopUncontrolledDP; prior_scenario_count = 100, save_data=false, save_output=false)
+function learn_from_data(array_of_act_histories::AbstractArray, array_of_obs_histories::AbstractArray, StopUncontrolledDP; prior_scenario_count = 100, normalize=true, save_data=false, save_output=false)
     
     # Convert Matrix to Vector of Vectors.
     if isa(array_of_act_histories, AbstractMatrix)
@@ -44,7 +44,7 @@ function learn_from_data(array_of_act_histories::AbstractArray, array_of_obs_his
 
     end
 
-    result = normalize_Func(Trans_Func)
+    result = normalize ? normalize_Func(Trans_Func) : Trans_Func
     if save_output JLD.save(string(timestamp) * "_output.jld", "Trans_Func", result) end
     return result
 end

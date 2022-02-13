@@ -30,6 +30,44 @@ def get_filter_data(filter_args):
     os.chdir(filter_args.working_dir)
     return filter_data
 
+def examine_filter_data():
+    class Params:    
+        rel_path_to_pkls = "./dev_train_v2/"
+        working_dir = os.getcwd()
+        env_observability_settings = {"low": 0 , "high": 1}
+        env_density_settings = {"low": 5, "med": 15, "high": 40}
+        env_aggressiveness_settings = {"aggressive": 3} #"cautious": 1, "normal": 2, "aggressive": 3}
+
+    params = Params()
+    filter_data = dict()
+    os.chdir(params.rel_path_to_pkls)
+
+    for (key1, ENV_OBSV) in tqdm(params.env_observability_settings.items(), desc="Env Observability"):
+        for (key2, ENV_DENS) in tqdm(params.env_density_settings.items(), desc="Env Density"):
+            for (key3, ENV_AGGR) in tqdm(params.env_aggressiveness_settings.items(), desc="Env Aggressiveness"):
+
+                list_of_loadnames = glob(f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}*.pkl")
+                L = load_many_with_pkl(list_of_loadnames)
+                val = MODIA.learn_from_data(L[0], L[1], MODIA.StopUncontrolledDP, prior_scenario_count=0, normalize=False)
+                val_idx = np.nonzero(val)
+                counts = val[val_idx]
+                argsrt = np.flip(np.argsort(counts))
+
+                s_names  = [jlBase.collect(reverse_dict(MODIA.State_Space)[item+1]) for item in val_idx[0]]
+                a_names  = [reverse_dict(MODIA.Action_Space)[item+1] for item in val_idx[1]]
+                sp_names = [jlBase.collect(reverse_dict(MODIA.State_Space)[item+1]) for item in val_idx[2]]
+        
+                table_data = np.array([s_names, a_names, sp_names, counts])
+
+                s_ids = "ego_pos, rival_pos, rival_blocking, rival_aggressiveness, clr_line_of_sight"
+                # MODIA.pretty_table(table_data.T.tolist(), [s_ids, "a", s_ids, "counts"])
+                print(f"Obsv_{key1}_Dens_{key2}_Aggr_{key3}")
+                MODIA.pretty_table(table_data[:,argsrt].T.tolist(), [s_ids, "a", s_ids, "counts"])
+                f = input("Press any key to continue...")
+                if f=='q': break
+
+    os.chdir(params.working_dir)
+    return filter_data
 
 def learn_all_data(filter_args):
     os.chdir(filter_args.rel_path_to_pkls)
