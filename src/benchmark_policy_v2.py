@@ -15,7 +15,7 @@ sys.path.append('./PythonAPI/carla/')
 
 # Args for testing
 class TestArguments:
-    filename = f"benchmark_dev_Feb13_v1.csv"
+    filename = f"benchmark_dev_Feb13_v2_gaussian.csv"
 
     num_of_trials = 15
     timeout_duration = 30.0
@@ -23,8 +23,8 @@ class TestArguments:
     orient_spectator = False
     verbose_belief = False
 
-    datapoint_to_benchmark = (0, 40, 2)
-    datapoint_to_benchmark_nrmz = (0, 1, 0.5)
+    datapoint_to_benchmark = (0, 5, 2)
+    datapoint_to_benchmark_nrmz = (0, 0, 0.5)
     env_aggressiveness_levels = {1: PresetScenarios.CAUTIOUS, 2: PresetScenarios.NORMAL, 3: PresetScenarios.AGGRESSIVE} 
 
     training_effort = list(range(3, 16, 3))   # 3, 6, ..., 15
@@ -38,7 +38,6 @@ class FilterArguments:
     env_aggressiveness_settings = {"cautious": 1, "normal": 2, "aggressive": 3}
 
     working_dir = os.getcwd()
-    rel_path_to_pkls = "./dev_train_v2/"
     prior_scenario_count = 2000
     plot_policy_maps = False    # if True, you need to enable `plot_funcs.jl` in MODIA.jl.
 
