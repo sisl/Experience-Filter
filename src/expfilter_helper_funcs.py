@@ -30,6 +30,15 @@ def get_filter_data(filter_args):
     os.chdir(filter_args.working_dir)
     return filter_data
 
+def get_accumulative_filter_data(filter_args):
+    os.chdir(filter_args.rel_path_to_pkls)
+    list_of_loadnames = glob(f"*.pkl")
+    L = load_many_with_pkl(list_of_loadnames)
+
+    val = MODIA.learn_from_data(L[0], L[1], MODIA.StopUncontrolledDP, prior_scenario_count=filter_args.prior_scenario_count)    
+    os.chdir(filter_args.working_dir)
+    return val
+
 def examine_filter_data():
     class Params:    
         rel_path_to_pkls = "./dev_train_v2/"

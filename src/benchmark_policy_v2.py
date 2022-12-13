@@ -15,13 +15,13 @@ sys.path.append('./PythonAPI/carla/')
 
 # Args for testing
 class TestArguments:
-    filename = f"benchmark_dev_Feb13_v2_gaussian.csv"
+    filename = f"benchmark_dev_Feb23.csv"
 
     num_of_trials = 15
     timeout_duration = 30.0
     spawn_radius = 100.0
-    orient_spectator = False
-    verbose_belief = False
+    orient_spectator = True
+    verbose_belief = True
 
     datapoint_to_benchmark = (0, 5, 2)
     datapoint_to_benchmark_nrmz = (0, 0, 0.5)
@@ -40,6 +40,7 @@ class FilterArguments:
     working_dir = os.getcwd()
     prior_scenario_count = 2000
     plot_policy_maps = False    # if True, you need to enable `plot_funcs.jl` in MODIA.jl.
+    rel_path_to_pkls = "./dev_train_v2/"
 
 # # Args for scoring
 # class ScoreArguments:
@@ -110,8 +111,8 @@ def already_logged(tef, method, trial):
 def main_running_loop(method=None):
     for trial in tqdm(range(test_args.num_of_trials), desc=f"Method running: {method}"):
 
-        if already_logged(tef, method, trial):
-            continue
+        # if already_logged(tef, method, trial):
+        #     continue
 
         ENV_OBSV, ENV_DENS, ENV_AGGR = test_args.datapoint_to_benchmark
         ENV_AGGR = test_args.env_aggressiveness_levels[ENV_AGGR]
@@ -146,11 +147,13 @@ def main_running_loop(method=None):
 
         # Record the score of the scenario 
         score = get_scenario_score(agent)
-        scenario_log = [tef, method, trial, score['safety'], score['discomfort'], score['time']]
+        scenario_log = [tef, method, trial, score['safety'], score['discomfort'], score['time'], agent.no_of_brakes]
         log_to_file(test_args.filename, scenario_log)
     return
 
 
+T_acc = get_accumulative_filter_data(filter_args)
+T_acc = MODIA.normalize_Func(T_acc)
 
 for tef in test_args.training_effort:
     # # Only use the subset of the recorded data, from the points that offer the maximum coverage, given their amount
@@ -159,32 +162,36 @@ for tef in test_args.training_effort:
     # covpts = [EF_all.datapoints[i] for i in covpts_indx]
     # filter_data_subset = {k:v for (k,v) in filter_data_All.items() if k in covpts}
 
-    covpts_norm = get_furthest_points(datapoints_normalized_All, test_args.datapoint_to_benchmark_nrmz, tef)
-    covpts_indx = [datapoints_normalized_All.index(item) for item in covpts_norm]
-    covpts = [EF_all.datapoints[i] for i in covpts_indx]
-    filter_data_subset = {k:v for (k,v) in filter_data_All.items() if k in covpts}
+    # covpts_norm = get_furthest_points(datapoints_normalized_All, test_args.datapoint_to_benchmark_nrmz, tef)
+    # covpts_indx = [datapoints_normalized_All.index(item) for item in covpts_norm]
+    # covpts = [EF_all.datapoints[i] for i in covpts_indx]
+    # filter_data_subset = {k:v for (k,v) in filter_data_All.items() if k in covpts}
 
-    # Assume: Trained with all data
-    T_all = np.mean(list(filter_data_subset.values()), axis=0)
-    T_all = MODIA.normalize_Func(T_all)
-    StopUncontrolledDP_new = create_DP_from_Trans_func(T_all)
-    main_running_loop(method="all")
+    # # Assume: Trained with all data
+    # T_all = np.mean(list(filter_data_subset.values()), axis=0)
+    # T_all = MODIA.normalize_Func(T_all)
+    # StopUncontrolledDP_new = create_DP_from_Trans_func(T_all)
+    # main_running_loop(method="all")
 
-    # Assume: Trained (self)
-    T_self = filter_data_All[test_args.datapoint_to_benchmark]
-    StopUncontrolledDP_new = create_DP_from_Trans_func(T_self)
-    main_running_loop(method="self")
+    # Assume: Trained with accumulative data
+    StopUncontrolledDP_new = create_DP_from_Trans_func(T_acc)
+    main_running_loop(method="accum")
+
+    # # Assume: Trained (self)
+    # T_self = filter_data_All[test_args.datapoint_to_benchmark]
+    # StopUncontrolledDP_new = create_DP_from_Trans_func(T_self)
+    # main_running_loop(method="self")
     
-    # Assume: Experince Filter
-    EF = ExperienceFilter(data=filter_data_subset, axeslabels=filter_args.axeslabels)
-    T_expfilter = EF.apply_filter(new_point=test_args.datapoint_to_benchmark)
-    StopUncontrolledDP_new = create_DP_from_Trans_func(T_expfilter)
-    main_running_loop(method="expfilter")
+    # # Assume: Experince Filter
+    # EF = ExperienceFilter(data=filter_data_subset, axeslabels=filter_args.axeslabels)
+    # T_expfilter = EF.apply_filter(new_point=test_args.datapoint_to_benchmark)
+    # StopUncontrolledDP_new = create_DP_from_Trans_func(T_expfilter)
+    # main_running_loop(method="expfilter")
 
-    # Assume: Nearest neighbor
-    _, nn = get_nearest_neighbor(covpts, test_args.datapoint_to_benchmark)
-    T_nn = filter_data_All[nn]
-    StopUncontrolledDP_new = create_DP_from_Trans_func(T_nn)
-    main_running_loop(method="nn")
+    # # Assume: Nearest neighbor
+    # _, nn = get_nearest_neighbor(covpts, test_args.datapoint_to_benchmark)
+    # T_nn = filter_data_All[nn]
+    # StopUncontrolledDP_new = create_DP_from_Trans_func(T_nn)
+    # main_running_loop(method="nn")
 
     if test_args.orient_spectator: orient.kill()
