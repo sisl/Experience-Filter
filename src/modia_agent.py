@@ -108,6 +108,7 @@ class MODIAAgent(object):
         self.min_distance_to_any_rival = 999999
         self.velocity_history = []
         self.time_history = []
+        self.no_of_brakes = 0
 
         # Base parameters
         self._ignore_traffic_lights = True
@@ -256,6 +257,7 @@ class MODIAAgent(object):
         affected_by_vehicle, _ = self._vehicle_obstacle_detected(vehicle_list, max_vehicle_distance)
         if affected_by_vehicle:
             list_of_actions.append(1)  # send "stop"
+            self.no_of_brakes += 1
 
         # Check if the vehicle is affected by a red traffic light
         max_tlight_distance = self._base_tlight_threshold + self.vehicle_speed

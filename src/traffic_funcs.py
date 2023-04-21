@@ -38,12 +38,14 @@ class DefaultArguments:
 
 @dataclass
 class ScenarioParams:
+    seed = 1
     min_speed: float = 0.0
     max_speed: float = 99.0
     traffic_speed_limit: float = 30.0  # Carla default.
     ignore_vehicles_percentage: float = 0.0
 
     def get_random_speed_perc(self):
+        random.seed(self.seed)
         assert self.max_speed >= self.min_speed, "max_speed should have been higher than min_speed"
         speed_perc_lower = -(self.min_speed / self.traffic_speed_limit * 100 - 100)
         speed_perc_upper = -(self.max_speed / self.traffic_speed_limit * 100 - 100)

@@ -35,7 +35,7 @@ class ExperienceFilter:
         self.datavalues.extend(new_data.values())
         if self.normalize_axes: self._normalize()
 
-    def apply_filter(self, new_point, weighting="inv_distance"):
+    def apply_filter(self, new_point, weighting='gaussian'):
         weights = self._get_datapoint_weights(new_point, weighting)
         new_value = np.average(self.datavalues, axis=0, weights=weights)
         return new_value
@@ -59,21 +59,25 @@ class ExperienceFilter:
         else:
             dtpts = self.datapoints
 
-        if weighting == "nearest":
+        if weighting == 'nearest':
             idx, _ = get_nearest_neighbor(dtpts, new_point)
             weights = np.zeros(len(dtpts))
             weights[idx] = 1.0
             return weights
 
-        elif weighting == "inv_distance":
+        elif weighting == 'inv_distance':
             distances = np.array(dtpts) - np.tile(new_point, (len(dtpts), 1))
             weights = np.reciprocal(np.linalg.norm(distances, axis=1))    # weights are inverse of distance
             weights[weights == np.inf] = 1.0e10
             return weights
 
-        elif weighting == "gaussian":
-            # TODO: Implement a Gaussian kernel version of this  
-            pass
+        elif weighting == 'gaussian':
+            sigma = 1.0
+            ell = 1.0
+            distances = np.array(dtpts) - np.tile(new_point, (len(dtpts), 1))
+            weights = sigma**2 * np.exp((-np.square(np.linalg.norm(distances, axis=1))) / (2*ell**2))
+            weights[weights == np.inf] = 1.0e10
+            return weights
 
         else:
             print(f"## INFO: Incorrect `weighting` argument.")
