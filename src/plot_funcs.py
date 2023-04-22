@@ -5,7 +5,7 @@ from helper_funcs import *
 
 # Args for plotting
 class PlotArguments:
-    log_filename = "benchmark_dev_Feb13_v2_gaussian.csv"
+    log_filename = "benchmark_records.csv"
     columns = ['tef', 'method', 'trial', 'safety', 'discomfort', 'time']
     columns_to_normalize = ['safety', 'discomfort', 'time']
 
